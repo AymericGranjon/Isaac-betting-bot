@@ -10,11 +10,12 @@ class Racer(Base):
     __tablename__ = 'racers'
     id = Column(Integer, primary_key = True)
     name = Column(String)
-    value = Column(Float)
+    name_racing = Column(String)
+    name_trueskill = Column(String)
 
     def __repr__(self):
-        return "<Racer(name='%s', value='%s')>" % (
-                             self.name, self.value)
+        return "<Racer(name='%s')>" % (
+                             self.name)
 
 class Better(Base):
     __tablename__ = 'betters'
@@ -47,6 +48,7 @@ class Race (Base) :
     odd2 = Column(Float)
     ongoing = Column(Boolean)
     betsOn = Column(Boolean)
+    format = Column(String) #seeded, diversity, unseeded, multiple
 
     def __str__(self):
-        return '{} : {} ({}) vs {} ({})'.format(self.id, self.racer1.name,self.odd1, self.racer2.name, self.odd2)
+        return '{} : {} ({}) vs {} ({}) on {} format'.format(self.id, self.racer1.name,self.odd1, self.racer2.name, self.odd2, self.format)
