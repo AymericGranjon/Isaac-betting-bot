@@ -54,7 +54,7 @@ def main() :
     @bot.event
     async def on_member_join(member) :     #add member on the db and give 500 on join
         if (not member.bot and not session.query(exists().where(Better.id == member.id)).scalar()) :
-            better = Better(id = member.id, name = member.name, coin = 500)
+            better = Better(id = member.id, name = member.nick, coin = 500)
             session.add(better)
     session.commit()
 
