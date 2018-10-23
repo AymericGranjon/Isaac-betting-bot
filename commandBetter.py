@@ -48,7 +48,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         sessionR.close()
         return toReturn
 
-    @commands.command(help = "Gives the winrate of one racer over another (use R+ names)")
+    @commands.command(help = "Gives the winrate of one racer over another (use R+ names)", usage = "!getWinrate <Racing+_name1> <Racing+_name2>")
     @is_channel(channel_name = BOT_CHANNEL)
     async def getWinrate(self, racer1_name, racer2_name) :
         result = self.getWinrateRacing(racer1_name, racer2_name)
@@ -57,7 +57,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True,
-                 help = "Get the amount of coin you or an user have")
+                 help = "Get the amount of coin you or an better have", usage = "!coin <better1> <better2> ...")
     async def coin(self, ctx, *users) :
         # todo : support @
         if len(users) == 0 :
@@ -73,7 +73,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
 
     @is_channel(channel_name = BOT_CHANNEL)
-    @commands.command(pass_context=True, help = "Place a bet")
+    @commands.command(pass_context=True, help = "Place a bet", usage = "!bet <Match#> <Winner_name> <coins_bet>")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
         coin = abs(coin)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
