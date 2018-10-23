@@ -75,6 +75,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Place a bet")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
+        coin = abs(coin)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
             await self.bot.say("This race doesn't exist")
             return
