@@ -39,9 +39,9 @@ python3.5 main.py
 
 * **Aymeric PassionDrama Granjon**
 
-##Thanks to
+## Thanks to
 
-Krakenos - Trueskill and general advice
-Lobserosity - General advice
-Pingouin23 - Database and general advice
-Zamiel - [Racing+](https://isaacracing.net) database
+* Krakenos - Trueskill and general advice
+* Lobserosity - General advice
+* Pingouin23 - Database and general advice
+* Zamiel - [Racing+](https://isaacracing.net) database
