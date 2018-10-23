@@ -8,7 +8,7 @@ A discord bot that allows to bet on [The Binding Of Isaac's](https://store.steam
 It is running on python 3.5 and upper (maybe lower, who knows)
 
 ### Installing
-[Make a dicord bot] (http://bfy.tw/KVfO)
+[Make a dicord bot](http://bfy.tw/KVfO)
 
 Clone the git where you want the bot to run :
 
@@ -40,6 +40,7 @@ python3.5 main.py
 * **Aymeric PassionDrama Granjon**
 
 ##Thanks to
+
 Krakenos - Trueskill and general advice
 Lobserosity - General advice
 Pingouin23 - Database and general advice
