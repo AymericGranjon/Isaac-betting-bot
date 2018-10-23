@@ -31,7 +31,8 @@ def displayOpenRaces(session): #use PrettyTables
             toDisplayOn = toDisplayOn + "\n" +  str(race)
         else :
             toDisplayOff = toDisplayOff + "\n" +  str(race)
-
+    if toDisplayOn == "" : toDisplayOn = " "
+    if toDisplayOff == "" : toDisplayOff = " "
     return "Open bets : ```"+toDisplayOn+"``` \n Closed bets : \n```" + toDisplayOff+"```"
 
 class CommandBookmaker:
