@@ -1,0 +1,5 @@
+sqlalchemy
+discord.py
+mysql-connector
+trueskill
+python-dotenv
