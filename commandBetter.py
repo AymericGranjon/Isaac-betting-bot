@@ -143,7 +143,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             totalPayoutRacer2 = totalPayoutRacer2 +  bet.coin_bet*bet.odd*(bet.winner_id == race.racer2_id)
             lastBet = bet
 
-        if nbBet%nbBetUpdate == 0 or totalCoin%nbCoinUpdate <= lastBet.coin_bet :
+        if nbBet%nbBetUpdate == 0 or totalCoin%nbCoinUpdate < lastBet.coin_bet :
             winRate1 =  1/((race.odd1 -1)/commision + 1)
             winRate2 = 1/((race.odd2 -1)/commision + 1)
             if abs(totalPayoutRacer1/totalCoin - winRate1) > maxDiff :
