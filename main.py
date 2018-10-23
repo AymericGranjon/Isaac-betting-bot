@@ -43,7 +43,7 @@ def main() :
         #check is there is a new memebers since last login, and give them 500
         for member in bot.get_all_members():
             if (not member.bot and not session.query(exists().where(Better.id == member.id)).scalar()) :
-                better = Better(id = member.id, name = member.name, coin = 500)
+                better = Better(id = member.id, name = member.nick, coin = 500)
                 session.add(better)
         session.commit()
         board_channel = bot.get_channel(board_id)
