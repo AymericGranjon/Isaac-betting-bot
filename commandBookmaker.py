@@ -10,6 +10,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
 from classes import Base, Racer, Bet, Race, Better
 import mysql.connector
+import itertools
+import math
+import trueskill
 
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
@@ -18,44 +21,86 @@ board_id = os.environ.get('BOARD_ID')
 board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
 db_racing = os.environ.get('DB_RACING')
+commision = 0.9 #We take 10% of the winnings, 1-commision actually
+
+def displayOpenRaces(session): #use PrettyTables
+    toDisplayOn = ""
+    toDisplayOff = ""
+    for race in session.query(Race).filter(Race.ongoing == True):
+        if race.betsOn == True :
+            toDisplayOn = toDisplayOn + "\n" +  str(race)
+        else :
+            toDisplayOff = toDisplayOff + "\n" +  str(race)
+
+    return "Open bets : ```"+toDisplayOn+"``` \n Closed bets : \n```" + toDisplayOff+"```"
 
 class CommandBookmaker:
     def __init__(self, bot, session):
         self.bot = bot
         self.session = session
 
-    def getOdd(racer1_name, racer2_name, format) :
+    def getOddVs(self, racer1_name, racer2_name, format) :
         engineR = create_engine(db_racing, echo =False)
         SessionR = sessionmaker(bind=engineR)
         sessionR = SessionR()
-        if format == "mutiple" :
+        if format == "multiple" :
+            query_racer1 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer1_name)
+            query_racer2 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer2_name)
+            racer1_trueskill = sessionR.execute(query_racer1)
+            racer1_trueskill= racer1_trueskill.first()
+            racer2_trueskill = sessionR.execute(query_racer2)
+            racer2_trueskill= racer2_trueskill.first()
+            racer1 = [[(racer1_trueskill[0]+racer1_trueskill[2]+racer1_trueskill[4])/3,(racer1_trueskill[1]+racer1_trueskill[3]+racer1_trueskill[5])/3]]
+            racer2 = [[(racer2_trueskill[0]+racer2_trueskill[2]+racer2_trueskill[4])/3,(racer2_trueskill[1]+racer2_trueskill[3]+racer2_trueskill[5])/3]]
 
         else :
+            query_racer1 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer1_name)
+            query_racer2 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer2_name)
+            racer1_trueskill = sessionR.execute(query_racer1)
+            racer1_trueskill= racer1_trueskill.first()
+            racer2_trueskill = sessionR.execute(query_racer2)
+            racer2_trueskill= racer2_trueskill.first()
+            racer1 = [[racer1_trueskill[0], racer1_trueskill[1]]]
+            racer2 = [[racer2_trueskill[0], racer2_trueskill[1]]]
+        delta_mu = sum(format[0] for format in racer1) - sum(format[0] for format in racer2)
+        sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1, racer2))
+        size = len(racer1) + len(racer2)
+        denom = math.sqrt(size * (trueskill.BETA * trueskill.BETA) + sum_sigma)
+        ts = trueskill.global_env()
+        sessionR.close()
+        return round(1+(1/ts.cdf(delta_mu / denom) - 1)*commision,2)
+
+    @commands.command()
+    @commands.has_role(bookmaker_role)
+    async def testOdds(self, racer1_name, racer2_name, format) :
+        await self.bot.say(self.getOddVs(racer1_name, racer2_name, format))
+        return
 
 
     @commands.command(help = "Add a match, open by default, format mutiple by default")
     @commands.has_role(bookmaker_role)
-    async def addMatch(self, racer1_name, odd1, racer2_name, odd2, *format) :
+    async def addMatch(self, racer1_name, racer2_name, *format) :
+        if len(format) == 0 :
+            format = "multiple"
+        else : format = format[0]
         if (not self.session.query(exists().where(Racer.name == racer1_name)).scalar()) :
             await self.bot.say("{:s} doesn't exist".format(racer1_name))
             return
         elif (not self.session.query(exists().where(Racer.name == racer2_name)).scalar()) :
             await self.bot.say("{:s} doesn't exist".format(racer2_name))
             return
-        elif not (format == "diversity" or format == "multiple" or format == "seeded" or format =="unseeded") or len(format) > 1 :
+        elif not (format == "diversity" or format == "multiple" or format == "seeded" or format =="unseeded") :
             await self.bot.say("{:s} is not a valid format. Valid formats are diversity, multiple, seeded or unseeded.".format(format))
             return
         else :
-            if len(format) == 0 :
-                format = "multiple"
             racer1 = self.session.query(Racer).filter(Racer.name == racer1_name).first()
             racer2 = self.session.query(Racer).filter(Racer.name == racer2_name).first()
-            race = Race(racer1_id = racer1.id, odd1 = getOdd(racer1.name_racing, racer2.name_racing, format), racer2_id = racer2.id, odd2 = getOdd(racer2.name_racing, racer1.name_racing ,format), ongoing = True, betsOn = True, format = format )
+            race = Race(racer1_id = racer1.id, odd1 = self.getOddVs(racer1.name_racing, racer2.name_racing, format), racer2_id = racer2.id, odd2 = self.getOddVs(racer2.name_racing, racer1.name_racing ,format), ongoing = True, betsOn = True, format = format )
             self.session.add(race)
             self.session.commit()
-            await self.bot.say("Race created : \n" + str(race))
-            board_channel = bot.get_channel(board_id)
-            board_message = await bot.get_message(board_channel, board_message_id)
+            await self.bot.say("```Match created : \n" + str(race)+"```")
+            board_channel = self.bot.get_channel(board_id)
+            board_message = await self.bot.get_message(board_channel, board_message_id)
             await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
     @commands.command(help = "Close the bets for a match")
@@ -110,6 +155,8 @@ class CommandBookmaker:
             racer = Racer(name = name[0], name_racing = name[1], name_trueskill = name[2])
         self.session.add(racer)
         self.session.commit()
+        await self.bot.say("{} has been added as a racer".format(racer.name))
+
 
     @commands.command(help = "Change a racer name on a database (Trueskill, Racing+, Betting)")
     @commands.has_role(bookmaker_role)
@@ -141,7 +188,7 @@ class CommandBookmaker:
             race.odd1 = odd
         else :
             await self.bot.say("{} is not in this race".format(racer_name))
-        board_channel = bot.get_channel(board_id)
+        board_channel = self.bot.get_channel(board_id)
         board_message = await self.bot.get_message(board_channel, board_message_id)
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
@@ -172,8 +219,8 @@ class CommandBookmaker:
             await self.bot.say(("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
             await self.bot.say(("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
-#        race.ongoing = False
-#        race.betsOn = False
+        race.ongoing = False
+        race.betsOn = False
         board_channel = self.bot.get_channel(board_id)
         board_message = await self.bot.get_message(board_channel, board_message_id)
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))

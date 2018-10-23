@@ -9,6 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
 from classes import Base, Racer, Bet, Race, Better
+from commandBookmaker import commision, displayOpenRaces
 import mysql.connector
 
 
@@ -16,6 +17,8 @@ dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .
 db_adress = os.environ.get('DB_ADRESS')
 BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 db_racing = os.environ.get('DB_RACING')
+board_id = os.environ.get('BOARD_ID')
+board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 
 class CommandBetter:
     def __init__(self, bot, session):
@@ -98,7 +101,11 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         better.coin = better.coin - int(coin)
         self.session.add(bet)
         self.session.commit()
+        await self.updateOdds(race)
         await self.bot.say("Bet placed")
+        board_channel = self.bot.get_channel(board_id)
+        board_message = await self.bot.get_message(board_channel, board_message_id)
+        await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
 
     @is_channel(channel_name = BOT_CHANNEL)
@@ -110,6 +117,44 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             if bet.race.ongoing == True :
                 message = message + "\n" + str(bet)
         await self.bot.say("Your current bets are : ```"+message+"```")
+
+    @is_channel(channel_name = BOT_CHANNEL)
+    @commands.command(pass_context=True, help = "Top 10 richest people in the world")
+    async def top(self) :
+        topBetters = self.session.query(Better).order_by(Better.coin.desc()).limit(10)
+        toplist = ""
+        for better in topBetters :
+            toplist =  toplist + better.name +" ({} coins) \n".format(better.coin)
+        await self.bot.say("The top betters are : ```{}```".format(toplist))
+
+    async def updateOdds(self, race) :
+        matchBets = self.session.query(Bet).filter(Bet.race_id == race.id)
+        nbBetUpdate = 10
+        nbCoinUpdate = 3500
+        totalCoin = 0
+        totalPayoutRacer1 = 0
+        totalPayoutRacer2 = 0
+        maxDiff = 0.05
+        nbBet = 0
+        for bet in matchBets : #Moyenne exponentielle ?
+            nbBet = nbBet + 1
+            totalCoin = totalCoin + bet.coin_bet
+            totalPayoutRacer1 = totalPayoutRacer1 +  bet.coin_bet*bet.odd*(bet.winner_id == race.racer1_id)
+            totalPayoutRacer2 = totalPayoutRacer2 +  bet.coin_bet*bet.odd*(bet.winner_id == race.racer2_id)
+            lastBet = bet
+
+        if nbBet%nbBetUpdate == 0 or totalCoin%nbCoinUpdate <= lastBet.coin_bet :
+            winRate1 =  1/((race.odd1 -1)/commision + 1)
+            winRate2 = 1/((race.odd2 -1)/commision + 1)
+            if abs(totalPayoutRacer1/totalCoin - winRate1) > maxDiff :
+                if (race.odd1 +0.2*(1/((totalPayoutRacer1/totalCoin -1)/commision + 1)))/1.2 >=1.05 :
+                    race.odd1 = round((race.odd1 +0.2*(1/((totalPayoutRacer1/totalCoin -1)/commision + 1)))/1.2,2)
+                else : race.odd1 = 1.05
+            if abs(totalPayoutRacer2/totalCoin - winRate2) > maxDiff :
+                if (race.odd2 +0.2*(1/((totalPayoutRacer2/totalCoin -1)/commision + 1)))/1.2 >=1.05 :
+                    race.odd2 = round((race.odd2 +0.2*(1/((totalPayoutRacer2/totalCoin -1)/commision + 1)))/1.2,2)
+                else : race.odd2 = 1.05
+            self.session.commit()
 
 def setup(bot):
     bot.add_cog(Better(bot))

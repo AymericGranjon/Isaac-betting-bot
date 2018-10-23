@@ -9,7 +9,7 @@ from sqlalchemy.sql import exists
 from classes import Base, Racer, Bet, Race, Better
 from ErrorHandler import CommandErrorHandler
 from commandBetter import CommandBetter
-from commandBookmaker import CommandBookmaker
+from commandBookmaker import CommandBookmaker, displayOpenRaces
 
 import discord
 from discord.ext import commands
@@ -25,16 +25,7 @@ bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
 engine = create_engine(db_adress, echo =False)
 Session = sessionmaker(bind=engine)
 
-def displayOpenRaces(session): #use PrettyTables
-    toDisplayOn = ""
-    toDisplayOff = ""
-    for race in session.query(Race).filter(Race.ongoing == True):
-        if race.betsOn == True :
-            toDisplayOn = toDisplayOn + "\n" +  str(race)
-        else :
-            toDisplayOff = toDisplayOff + "\n" +  str(race)
 
-    return "Open bets : ```"+toDisplayOn+"``` \n Closed bets : \n```" + toDisplayOff+"```"
 
 def main() :
 
