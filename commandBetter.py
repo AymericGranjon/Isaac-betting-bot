@@ -1,4 +1,5 @@
 import os
+import re
 import dotenv
 import discord
 from discord.ext import commands
@@ -83,6 +84,8 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @commands.command(pass_context=True, help = "Place a bet", usage = "!bet <Match#> <Winner_name> <coins_bet>")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
         coin = abs(int(coin))
+        race_id = re.search(r'\d+$', race_id)
+        race_id = int(race_id.group())
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
             await self.bot.say("This race doesn't exist")
             return
