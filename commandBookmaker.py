@@ -21,6 +21,8 @@ board_id = os.environ.get('BOARD_ID')
 board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
 db_racing = os.environ.get('DB_RACING')
+bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
+BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 commision = 0.9 #We take 10% of the winnings, 1-commision actually
 
 def displayOpenRaces(session): #use PrettyTables
@@ -39,6 +41,11 @@ class CommandBookmaker:
     def __init__(self, bot, session):
         self.bot = bot
         self.session = session
+
+    def is_channel(channel_name):
+        def predicate(ctx):
+            return ctx.message.channel.name == channel_name
+        return commands.check(predicate)
 
     def getOddVs(self, racer1_name, racer2_name, format) :
         engineR = create_engine(db_racing, echo =False)
@@ -72,6 +79,7 @@ class CommandBookmaker:
         return round(1+(1/ts.cdf(delta_mu / denom) - 1)*commision,2)
 
     @commands.command()
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def testOdds(self, racer1_name, racer2_name, format) :
         await self.bot.say(self.getOddVs(racer1_name, racer2_name, format))
@@ -79,6 +87,7 @@ class CommandBookmaker:
 
 
     @commands.command(help = "Add a match, open by default, format mutiple by default")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def addMatch(self, racer1_name, racer2_name, *format) :
         if len(format) == 0 :
@@ -105,6 +114,7 @@ class CommandBookmaker:
             await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
     @commands.command(help = "Close the bets for a match")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def closeBets(self,race_id) : #Close race, todo : display  race id and Who vs Who
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
@@ -123,6 +133,7 @@ class CommandBookmaker:
 
 
     @commands.command(help = "Open the bets for a match")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def openBets(self, race_id) : #Close bets, todo : display  race id and Who vs Who
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
@@ -140,6 +151,7 @@ class CommandBookmaker:
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
     @commands.command(help = "Add a racer")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def addRacer (self, *name) :
         if (self.session.query(exists().where(Racer.name == name[0])).scalar()) :
@@ -160,6 +172,7 @@ class CommandBookmaker:
 
 
     @commands.command(help = "Change a racer name on a database (Trueskill, Racing+, Betting)")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def changeName (self, name, database, new_name) :
         if (not self.session.query(exists().where(Racer.name == name)).scalar()) :
@@ -177,6 +190,7 @@ class CommandBookmaker:
         self.session.commit()
 
     @commands.command(help = "Change the multiplier for a racer in a match")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def changeOdds (self, race_id, racer_name, odd) :
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
@@ -194,6 +208,7 @@ class CommandBookmaker:
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
     @commands.command(help = "Close a match and give winners their due")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def closeMatch(self, race_id, winner_name) :
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
@@ -211,6 +226,7 @@ class CommandBookmaker:
         else :
             loser_name = race.racer1.name
         winner_message = ""
+        board_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
         DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
         for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
             if bet.winner.name == winner_name :
@@ -219,9 +235,9 @@ class CommandBookmaker:
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
                 DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
         if winner_message == "" :
-            await self.bot.say(("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
+            await self.bot.send_message(board_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
-            await self.bot.say(("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
+            await self.bot.send_message(board_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
         race.ongoing = False
         race.betsOn = False
         board_channel = self.bot.get_channel(board_id)
@@ -231,6 +247,7 @@ class CommandBookmaker:
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 
     @commands.command(help = "Give an user coins")
+    @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def giveCoin(self, better_name, coin) :
         if not self.session.query(exists().where(Better.name == better_name)).scalar():

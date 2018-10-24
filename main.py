@@ -30,7 +30,7 @@ def main() :
 
     bot = commands.Bot(command_prefix='!', case_insensitive=True)
     session = Session()
-    bot.add_cog(CommandErrorHandler(bot))
+    #bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
     bot.add_cog(CommandBookmaker(bot,session))
     Base.metadata.create_all(engine)

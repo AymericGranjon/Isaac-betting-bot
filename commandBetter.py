@@ -34,11 +34,9 @@ class CommandBetter:
         engineR = create_engine(db_racing, echo =False)
         SessionR = sessionmaker(bind=engineR)
         sessionR = SessionR()
-        query = ("""select SUM((t1.place < t2.place and t1.place!=-1) or (t1.place!=-1 and t2.place=-1)) /
-(SUM((t1.place < t2.place and t1.place!=-1) or (t1.place!=-1 and t2.place=-1))
-+ SUM((t1.place > t2.place and t2.place!=-1) or (t2.place!=-1 and t1.place=-1)))*100 as winrate, SUM(t1.race_id = t2.race_id) as gamePlayed
+        query = ("""select SUM((t1.place < t2.place and t1.place!=-1) or (t1.place!=-1 and t2.place=-1))*100/SUM(t1.race_id = t2.race_id) as winrate, SUM(t1.race_id = t2.race_id) as gamePlayed
 from race_participants t1, race_participants t2 where t1.user_id =(
-        select id from users where username='{}'
+        select id from users where username= '{}'
     )
 and t2.user_id = (
         select id from users where username='{}'
@@ -48,9 +46,9 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         sessionR.close()
         return toReturn
 
-    @commands.command(pass_context=True, help = "Gives the winrate of one racer over another (use R+ names)", usage = "!getWinrate <Racing+_name1> <Racing+_name2>")
+    @commands.command(pass_context=True, help = "Gives the winrate of one racer over another (use R+ names)", usage = "!winrate <Racing+_name1> <Racing+_name2>")
     @is_channel(channel_name = BOT_CHANNEL)
-    async def getWinrate(self, ctx, *racers) :
+    async def winrate(self, ctx, *racers) :
         if len(racers) == 1 :
             racer1_name = ctx.message.author.display_name
             racer2_name = racers[0]
@@ -128,15 +126,17 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         for bet in self.session.query(Bet).filter(Bet.better_id == better.id) :
             if bet.race.ongoing == True :
                 message = message + "\n" + str(bet)
+        if message == "" : message = "You have no bet placed"
         await self.bot.say("Your current bets are : ```"+message+"```")
 
     @is_channel(channel_name = BOT_CHANNEL)
-    @commands.command(pass_context=True, help = "Top 10 richest people in the world")
+    @commands.command(pass_context=True, help = "Top richest people in the world")
     async def top(self) :
-        topBetters = self.session.query(Better).order_by(Better.coin.desc()).limit(10)
+        topBetters = self.session.query(Better).order_by(Better.coin.desc()).limit(11)
         toplist = ""
         for better in topBetters :
-            toplist =  toplist + better.name +" ({} coins) \n".format(better.coin)
+            if int(better.id) != int(self.bot.user.id) :
+                toplist =  toplist + better.name +" ({} coins) \n".format(better.coin)
         await self.bot.say("The top betters are : ```{}```".format(toplist))
 
     async def updateOdds(self, race) :
