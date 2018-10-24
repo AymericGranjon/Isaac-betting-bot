@@ -48,9 +48,18 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         sessionR.close()
         return toReturn
 
-    @commands.command(help = "Gives the winrate of one racer over another (use R+ names)", usage = "!getWinrate <Racing+_name1> <Racing+_name2>")
+    @commands.command(pass_context=True, help = "Gives the winrate of one racer over another (use R+ names)", usage = "!getWinrate <Racing+_name1> <Racing+_name2>")
     @is_channel(channel_name = BOT_CHANNEL)
-    async def getWinrate(self, racer1_name, racer2_name) :
+    async def getWinrate(self, ctx, *racers) :
+        if len(racers) == 1 :
+            racer1_name = ctx.message.author.display_name
+            racer2_name = racers[0]
+        elif len(racers) == 2 :
+            racer1_name = racers[0]
+            racer2_name = racers[1]
+        else :
+            await self.bot.say('Bad argument')
+            return
         result = self.getWinrateRacing(racer1_name, racer2_name)
         result = result.first()
         await self.bot.say("""```{} placed higher than {} {}% of the time out of {} races on Racing+!```""".format(racer1_name, racer2_name, result[0], result[1]))
@@ -75,7 +84,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Place a bet", usage = "!bet <Match#> <Winner_name> <coins_bet>")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
-        coin = abs(coin)
+        coin = abs(int(coin))
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
             await self.bot.say("This race doesn't exist")
             return
@@ -100,6 +109,8 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             return
         bet = Bet(better_id = ctx.message.author.id, better = better, race_id = race_id, race = race, winner_id = winner.id, winner = winner, coin_bet = coin, odd = odd)
         better.coin = better.coin - int(coin)
+        DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
+        DaCream.coin = DaCream.coin + int(coin)
         self.session.add(bet)
         self.session.commit()
         await self.updateOdds(race)

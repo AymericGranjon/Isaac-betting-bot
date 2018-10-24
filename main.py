@@ -21,7 +21,6 @@ board_id = os.environ.get('BOARD_ID')
 board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
 
-
 engine = create_engine(db_adress, echo =False)
 Session = sessionmaker(bind=engine)
 
@@ -34,7 +33,6 @@ def main() :
     bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
     bot.add_cog(CommandBookmaker(bot,session))
-
     Base.metadata.create_all(engine)
 
     @bot.event
@@ -42,8 +40,8 @@ def main() :
         print('We have logged in as {0.user}'.format(bot))
         #check is there is a new memebers since last login, and give them 500
         for member in bot.get_all_members():
-            if (not member.bot and not session.query(exists().where(Better.id == member.id)).scalar()) :
-                better = Better(id = member.id, name = member.nick, coin = 500)
+            if ((not member.bot or member == bot.user) and not session.query(exists().where(Better.id == member.id)).scalar()) :
+                better = Better(id = member.id, name = member.display_name, coin = 500)
                 session.add(better)
         session.commit()
         board_channel = bot.get_channel(board_id)
@@ -54,7 +52,7 @@ def main() :
     @bot.event
     async def on_member_join(member) :     #add member on the db and give 500 on join
         if (not member.bot and not session.query(exists().where(Better.id == member.id)).scalar()) :
-            better = Better(id = member.id, name = member.nick, coin = 500)
+            better = Better(id = member.id, name = member.display_name, coin = 500)
             session.add(better)
     session.commit()
 

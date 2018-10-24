@@ -211,11 +211,13 @@ class CommandBookmaker:
         else :
             loser_name = race.racer1.name
         winner_message = ""
+        DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
         for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
             if bet.winner.name == winner_name :
                 better = bet.better
                 better.coin = better.coin + round(bet.coin_bet*bet.odd)
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
+                DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
         if winner_message == "" :
             await self.bot.say(("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
