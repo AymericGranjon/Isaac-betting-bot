@@ -20,15 +20,17 @@ BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 db_racing = os.environ.get('DB_RACING')
 board_id = os.environ.get('BOARD_ID')
 board_message_id = os.environ.get('BOARD_MESSAGE_ID')
+bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
+BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 
 class CommandBetter:
     def __init__(self, bot, session):
         self.bot = bot
         self.session = session
 
-    def is_channel(channel_name):
+    def is_channel(**channel_name):
         def predicate(ctx):
-            return ctx.message.channel.name == channel_name
+            return ctx.message.channel.name in channel_name['channel_name']
         return commands.check(predicate)
 
     def getWinrateRacing(self, racer1_name, racer2_name) :
@@ -80,25 +82,26 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
                     await self.bot.say("{:s} doesn't exist".format(name))
 
 
-    @is_channel(channel_name = BOT_CHANNEL)
+    @is_channel(channel_name = [BOT_CHANNEL,"betting-board"])
     @commands.command(pass_context=True, help = "Place a bet", usage = "!bet <Match#> <Winner_name> <coins_bet>")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
         coin = abs(int(coin))
         race_id = re.search(r'\d+$', race_id)
         race_id = int(race_id.group())
+        bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race doesn't exist")
+            await self.bot.send_message(bot_channel,"This race doesn't exist")
             return
         race = self.session.query(Race).get(race_id)
         if not race.betsOn :
-            await self.bot.say("The bets for this race are closed")
+            await self.bot.send_message(bot_channel,"The bets for this race are closed")
             return
         if  not (race.racer1.name == winner_name or race.racer2.name == winner_name ) :
-            await self.bot.say("{} is not in this race".format(winner_name))
+            await self.bot.send_message(bot_channel,"{} is not in this race".format(winner_name))
             return
         better =  self.session.query(Better).get(ctx.message.author.id)
         if better.coin < int(coin) :
-            await self.bot.say ("You don't have enough coins. Curent balance : {}".format(better.coin))
+            await self.bot.send_message(bot_channel,"You don't have enough coins. Curent balance : {}".format(better.coin))
             return
         winner = self.session.query(Racer).filter(Racer.name == winner_name).first()
         if race.racer1_id == winner.id :
@@ -106,7 +109,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         elif race.racer2_id == winner.id :
             odd = race.odd2
         else :
-            await self.bot.say("Databese error")
+            await self.bot.send_message(bot_channel,"Databese error")
             return
         bet = Bet(better_id = ctx.message.author.id, better = better, race_id = race_id, race = race, winner_id = winner.id, winner = winner, coin_bet = coin, odd = odd)
         better.coin = better.coin - int(coin)
@@ -115,7 +118,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         self.session.add(bet)
         self.session.commit()
         await self.updateOdds(race)
-        await self.bot.say("Bet placed")
+        await self.bot.send_message(bot_channel,"```{} just bet {} coin that {} will win match#{}```".format(better.name,bet.coin_bet,winner.name,bet.race_id))
         board_channel = self.bot.get_channel(board_id)
         board_message = await self.bot.get_message(board_channel, board_message_id)
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))

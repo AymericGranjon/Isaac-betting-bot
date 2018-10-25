@@ -30,10 +30,12 @@ def main() :
 
     bot = commands.Bot(command_prefix='!', case_insensitive=True)
     session = Session()
-    bot.add_cog(CommandErrorHandler(bot))
+    #bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
     bot.add_cog(CommandBookmaker(bot,session))
     Base.metadata.create_all(engine)
+
+
 
     @bot.event
     async def on_ready():
@@ -54,7 +56,7 @@ def main() :
         if (not member.bot and not session.query(exists().where(Better.id == member.id)).scalar()) :
             better = Better(id = member.id, name = member.display_name, coin = 500)
             session.add(better)
-    session.commit()
+        session.commit()
 
     @bot.event
     async def on_member_update(before, after):     #change name in the db when a user's name is changed
@@ -62,6 +64,15 @@ def main() :
             better = session.query(Better).get(before.id)
             better.name = after.display_name
             session.commit()
+
+    @bot.event
+    async def on_message(message) :
+        str = message.content
+        if message.author == bot.user:
+            return
+        if (message.channel.id == board_id) :
+            await bot.delete_message(message)
+        await bot.process_commands(message)
 
     bot.run(TOKEN)
 

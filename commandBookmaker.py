@@ -226,7 +226,7 @@ class CommandBookmaker:
         else :
             loser_name = race.racer1.name
         winner_message = ""
-        board_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+        board_channel = self.bot.get_channel(board_id)
         DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
         for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
             if bet.winner.name == winner_name :
@@ -234,14 +234,17 @@ class CommandBookmaker:
                 better.coin = better.coin + round(bet.coin_bet*bet.odd)
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
                 DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
+        board_message = await self.bot.get_message(board_channel, board_message_id)
+        message = self.bot.logs_from(board_channel, limit =1)
+        async for m in message :
+            if m.id != board_message_id :
+                await self.bot.delete_message(m)
         if winner_message == "" :
             await self.bot.send_message(board_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
             await self.bot.send_message(board_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
-        race.ongoing = False
-        race.betsOn = False
-        board_channel = self.bot.get_channel(board_id)
-        board_message = await self.bot.get_message(board_channel, board_message_id)
+#        race.ongoing = False
+#        race.betsOn = False
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
