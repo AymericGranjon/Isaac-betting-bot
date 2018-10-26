@@ -107,7 +107,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         if better.coin < int(coin) :
             await self.bot.send_message(bot_channel,"You don't have enough coins. Curent balance : {}".format(better.coin))
             return
-        winner = self.session.query(Racer).filter(Racer.name == winner_name.first()
+        winner = self.session.query(Racer).filter(Racer.name == winner_name.first())
         if race.racer1_id == winner.id :
             odd = race.odd1
         elif race.racer2_id == winner.id :
