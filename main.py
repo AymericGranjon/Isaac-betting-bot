@@ -71,7 +71,8 @@ def main() :
         if message.author == bot.user:
             return
         if (message.channel.id == board_id) :
-            await bot.delete_message(message)
+            pass
+            #await bot.delete_message(message)
         await bot.process_commands(message)
 
     bot.run(TOKEN)

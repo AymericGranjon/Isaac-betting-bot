@@ -243,8 +243,8 @@ class CommandBookmaker:
             await self.bot.send_message(board_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
             await self.bot.send_message(board_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
-#        race.ongoing = False
-#        race.betsOn = False
+        race.ongoing = False
+        race.betsOn = False
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?

@@ -67,7 +67,8 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True,
-                 help = "Get the amount of coin you or an better have", usage = "!coin <better1> <better2> ...")
+                 help = "Get the amount of coin you or an better have", usage = "!coin <better1> <better2> ...",
+                 aliases = ["coins"])
     async def coin(self, ctx, *users) :
         # todo : support @
         if len(users) == 0 :
@@ -85,10 +86,12 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @is_channel(channel_name = [BOT_CHANNEL,"betting-board"])
     @commands.command(pass_context=True, help = "Place a bet", usage = "!bet <Match#> <Winner_name> <coins_bet>")
     async def bet (self, ctx, race_id, winner_name, coin) : #no check if coin is an integer
-        coin = abs(int(coin))
-        race_id = re.search(r'\d+$', race_id)
-        race_id = int(race_id.group())
         bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+        race_id = re.search(r'\d+$', race_id)
+        if race_id == None :
+            await self.bot.send_message(bot_channel,"This race doesn't exist")
+            return
+        race_id = int(race_id.group())
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
             await self.bot.send_message(bot_channel,"This race doesn't exist")
             return
@@ -100,16 +103,17 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             await self.bot.send_message(bot_channel,"{} is not in this race".format(winner_name))
             return
         better =  self.session.query(Better).get(ctx.message.author.id)
+        coin = abs(int(coin))
         if better.coin < int(coin) :
             await self.bot.send_message(bot_channel,"You don't have enough coins. Curent balance : {}".format(better.coin))
             return
-        winner = self.session.query(Racer).filter(Racer.name == winner_name).first()
+        winner = self.session.query(Racer).filter(Racer.name == winner_name.first()
         if race.racer1_id == winner.id :
             odd = race.odd1
         elif race.racer2_id == winner.id :
             odd = race.odd2
         else :
-            await self.bot.send_message(bot_channel,"Databese error")
+            await self.bot.send_message(bot_channel,"Database error")
             return
         bet = Bet(better_id = ctx.message.author.id, better = better, race_id = race_id, race = race, winner_id = winner.id, winner = winner, coin_bet = coin, odd = odd)
         better.coin = better.coin - int(coin)
@@ -125,7 +129,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
 
     @is_channel(channel_name = BOT_CHANNEL)
-    @commands.command(pass_context=True, help = "Get current bets")
+    @commands.command(pass_context=True, help = "Get current bets", aliases = ["bets", "Bets", "currentbets"])
     async def currentBets(self, ctx) :
         message = ""
         better = self.session.query(Better).get(ctx.message.author.id)
