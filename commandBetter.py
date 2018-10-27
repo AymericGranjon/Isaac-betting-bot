@@ -146,11 +146,31 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Top richest people in the world")
     async def top(self) :
-        topBetters = self.session.query(Better).order_by(Better.coin.desc()).limit(11)
+        bets = self.session.query(Bet)
+        betters = self.session.query(Better)
+        top = [[],[]]
         toplist = ""
-        for better in topBetters :
+        for better in betters :
+            coins = better.coin
+            for bet in self.session.query(Bet).filter(Bet.better == better) :
+                race = bet.race
+                if race.ongoing == True :
+                    coins = coins + bet.coin_bet
             if int(better.id) != int(self.bot.user.id) :
-                toplist =  toplist + better.name +" ({} coins) \n".format(better.coin)
+                if len(top[0]) == 0 :
+                    top = [[better.name],[coins]]
+                elif len(top[0]) < 10 :
+                    top[0].append(better.name)
+                    top[1].append(coins)
+                elif min(top[1]) <= coins :
+                    index_min = min(range(len(top[1])), key=top[1].__getitem__)
+                    top[0][index_min] = better.name
+                    top[1][index_min] = coins
+        while len(top[0]) != 0 :
+            index_max = max(range(len(top[1])), key=top[1].__getitem__)
+            toplist =  toplist + top[0][index_max] +" ({} coins) \n".format(top[1][index_max])
+            del top[0][index_max]
+            del top[1][index_max]
         await self.bot.say("The top betters are : ```{}```".format(toplist))
 
     async def updateOdds(self, race) :
