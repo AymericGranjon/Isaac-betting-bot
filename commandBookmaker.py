@@ -252,7 +252,7 @@ class CommandBookmaker:
         race.betsOn = False
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
-        await self.bot.send_message(sumup_channel,"**Sum up of match#{}**\n```Total coins bet : {}\nTotal coins paid : {} \nTotal profit : {}```".format(race.id, total_bet, total_paid, total_bet-total_paid))
+        await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Total coins bet : {}\nTotal coins paid : {} \nTotal profit : {}```".format(race, total_bet, total_paid, total_bet-total_paid))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 
