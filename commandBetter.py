@@ -106,10 +106,10 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         better =  self.session.query(Better).get(ctx.message.author.id)
         emoji = get(self.bot.get_all_emojis(), name='PunOko')
         if coin.isdigit() == False :
-            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(better.coin, emoji))
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(emoji))
             return
         if  int(coin) <= 0 :
-            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(better.coin, emoji))
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(emoji))
             return
         winner = self.session.query(Racer).filter(Racer.name == winner_name).first()
         if race.racer1_id == winner.id :
