@@ -49,6 +49,16 @@ class Race (Base) :
     ongoing = Column(Boolean)
     betsOn = Column(Boolean)
     format = Column(String) #seeded, diversity, unseeded, multiple
-
+    tournament_id = Column(Integer, ForeignKey('tournaments.id'))
+    tournament = relationship("Tournament")
     def __str__(self):
-        return 'Match #{} : {} ({}) vs {} ({}) on {} format'.format(self.id, self.racer1.name,self.odd1, self.racer2.name, self.odd2, self.format)
+        return 'Match #{} : {} ({}) vs {} ({}) - {} ({} format)'.format(self.id, self.racer1.name,self.odd1, self.racer2.name, self.odd2,self.tournament.name, self.format)
+
+class Tournament(Base):
+    __tablename__ = 'tournaments'
+    id = Column(Integer, primary_key = True)
+    name = Column(String)
+    challonge = Column(String)
+    format = Column(String)
+    def __str__(self):
+        return "{}, format {}, link : {}".format(self.name, self.format, self.challonge)

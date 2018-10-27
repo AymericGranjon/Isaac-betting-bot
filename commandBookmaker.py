@@ -8,7 +8,7 @@ from sqlalchemy import Column, Date, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
-from classes import Base, Racer, Bet, Race, Better
+from classes import Base, Racer, Bet, Race, Better, Tournament
 import mysql.connector
 import itertools
 import math
@@ -90,9 +90,13 @@ class CommandBookmaker:
     @commands.command(help = "Add a match, open by default, format mutiple by default")
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
-    async def addMatch(self, racer1_name, racer2_name, *format) :
+    async def addMatch(self, racer1_name, racer2_name, tournament, *format) :
+        if (not self.session.query(exists().where(Tournament.name == tournament)).scalar()) :
+            await self.bot.say("This tournament doesn't exist")
+            return
+        tournament = self.session.query(Tournament).filter(Tournament.name == tournament).first()
         if len(format) == 0 :
-            format = "multiple"
+            format = tournament.format
         else : format = format[0]
         if (not self.session.query(exists().where(Racer.name == racer1_name)).scalar()) :
             await self.bot.say("{:s} doesn't exist".format(racer1_name))
@@ -103,16 +107,29 @@ class CommandBookmaker:
         elif not (format == "diversity" or format == "multiple" or format == "seeded" or format =="unseeded") :
             await self.bot.say("{:s} is not a valid format. Valid formats are diversity, multiple, seeded or unseeded.".format(format))
             return
-        else :
-            racer1 = self.session.query(Racer).filter(Racer.name == racer1_name).first()
-            racer2 = self.session.query(Racer).filter(Racer.name == racer2_name).first()
-            race = Race(racer1_id = racer1.id, odd1 = self.getOddVs(racer1.name_racing, racer2.name_racing, format), racer2_id = racer2.id, odd2 = self.getOddVs(racer2.name_racing, racer1.name_racing ,format), ongoing = True, betsOn = True, format = format )
-            self.session.add(race)
-            self.session.commit()
-            await self.bot.say("```Match created : \n" + str(race)+"```")
-            board_channel = self.bot.get_channel(board_id)
-            board_message = await self.bot.get_message(board_channel, board_message_id)
-            await self.bot.edit_message(board_message,displayOpenRaces(self.session))
+        racer1 = self.session.query(Racer).filter(Racer.name == racer1_name).first()
+        racer2 = self.session.query(Racer).filter(Racer.name == racer2_name).first()
+        race = Race(racer1_id = racer1.id, odd1 = self.getOddVs(racer1.name_racing, racer2.name_racing, format), racer2_id = racer2.id, odd2 = self.getOddVs(racer2.name_racing, racer1.name_racing ,format), ongoing = True, betsOn = True, format = format, tournament_id = tournament.id )
+        self.session.add(race)
+        self.session.commit()
+        await self.bot.say("```Match created : \n" + str(race)+"```")
+        board_channel = self.bot.get_channel(board_id)
+        board_message = await self.bot.get_message(board_channel, board_message_id)
+        await self.bot.edit_message(board_message,displayOpenRaces(self.session))
+
+    @commands.command(help = "Add a tournament", aliases = ["addTourney","tourney","Tourney","tournament"])
+    @is_channel(channel_name = bookmaker_channel)
+    @commands.has_role(bookmaker_role)
+    async def addTournament(self, name, format, *challonge) :
+        if self.session.query(exists().where(Tournament.name == name)).scalar() :
+            await self.bot.say("A tournament with the same name already exists")
+            return
+        if len(challonge) == 0:
+            challonge = ["None"]
+        tournament = Tournament(name = name, format = format, challonge = challonge[0])
+        self.session.add(tournament)
+        self.session.commit()
+        await self.bot.say("```Tournament created : \n" + str(tournament)+"```")
 
     @commands.command(help = "Close the bets for a match")
     @is_channel(channel_name = bookmaker_channel)

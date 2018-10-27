@@ -28,7 +28,7 @@ Session = sessionmaker(bind=engine)
 
 def main() :
 
-    bot = commands.Bot(command_prefix='!', case_insensitive=True)
+    bot = commands.Bot(command_prefix='!')
     session = Session()
     bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
