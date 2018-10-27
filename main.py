@@ -69,10 +69,9 @@ def main() :
     async def on_message(message) :
         str = message.content
         if message.author == bot.user:
-            return
-        if (message.channel.id == board_id) :
             pass
-            #await bot.delete_message(message)
+        elif (message.channel.id == board_id) :
+            await bot.delete_message(message)
         await bot.process_commands(message)
 
     bot.run(TOKEN)

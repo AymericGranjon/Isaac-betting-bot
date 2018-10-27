@@ -12,6 +12,7 @@ from sqlalchemy.sql import exists
 from classes import Base, Racer, Bet, Race, Better
 from commandBookmaker import commision, displayOpenRaces
 import mysql.connector
+from discord.utils import get
 
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
@@ -103,11 +104,14 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             await self.bot.send_message(bot_channel,"{} is not in this race".format(winner_name))
             return
         better =  self.session.query(Better).get(ctx.message.author.id)
-        coin = abs(int(coin))
-        if better.coin < int(coin) :
-            await self.bot.send_message(bot_channel,"You don't have enough coins. Curent balance : {}".format(better.coin))
+        emoji = get(self.bot.get_all_emojis(), name='PunOko')
+        if coin.isdigit() == False :
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(better.coin, emoji))
             return
-        winner = self.session.query(Racer).filter(Racer.name == winner_name.first())
+        if  int(coin) <= 0 :
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(better.coin, emoji))
+            return
+        winner = self.session.query(Racer).filter(Racer.name.lower() == winner_name.lower()).first()
         if race.racer1_id == winner.id :
             odd = race.odd1
         elif race.racer2_id == winner.id :

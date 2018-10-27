@@ -23,6 +23,7 @@ bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
 db_racing = os.environ.get('DB_RACING')
 bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
 BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
+SUMUP_CHANNEL = os.environ.get('SUMUP_CHANNEL')
 commision = 0.9 #We take 10% of the winnings, 1-commision actually
 
 def displayOpenRaces(session): #use PrettyTables
@@ -228,12 +229,16 @@ class CommandBookmaker:
         winner_message = ""
         board_channel = self.bot.get_channel(board_id)
         DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
+        total_bet = 0
+        total_paid = 0
         for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
+            total_bet = total_bet + bet.coin_bet
             if bet.winner.name == winner_name :
                 better = bet.better
                 better.coin = better.coin + round(bet.coin_bet*bet.odd)
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
                 DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
+                total_paid = round(bet.coin_bet*bet.odd) + total_paid
         board_message = await self.bot.get_message(board_channel, board_message_id)
         message = self.bot.logs_from(board_channel, limit =1)
         async for m in message :
@@ -246,6 +251,8 @@ class CommandBookmaker:
         race.ongoing = False
         race.betsOn = False
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
+        sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
+        await self.bot.send_message(sumup_channel,"**Sum up of match#{}**\n```Total coins bet : {}\nTotal coins paid : {} \nTotal profit : {}```".format(race.id, total_bet, total_paid, total_bet-total_paid))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 
