@@ -129,7 +129,18 @@ class CommandBookmaker:
         tournament = Tournament(name = name, format = format, challonge = challonge[0])
         self.session.add(tournament)
         self.session.commit()
-        await self.bot.say("```Tournament created : \n" + str(tournament)+"```")
+        await self.bot.say("Tournament created : \n```" + str(tournament)+"```")
+
+    @commands.command(help = "Change tournamment link")
+    @is_channel(channel_name = bookmaker_channel)
+    @commands.has_role(bookmaker_role)
+    async def changeLink(self, name, link) :
+        if not(self.session.query(exists().where(Tournament.name == name)).scalar()) :
+            await self.bot.say("This tournament doesn't exist")
+            return
+        tournament = self.session.query(Tournament).filter(Tournament.name == tournament).first()
+        tournament.challonge = link
+        self.session.commit()
 
     @commands.command(help = "Close the bets for a match")
     @is_channel(channel_name = bookmaker_channel)
