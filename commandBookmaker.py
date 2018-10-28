@@ -140,6 +140,7 @@ class CommandBookmaker:
             return
         tournament = self.session.query(Tournament).filter(Tournament.name == tournament).first()
         tournament.challonge = link
+        await self.bot.say(str(tournament))
         self.session.commit()
 
     @commands.command(help = "Close the bets for a match")
@@ -281,6 +282,35 @@ class CommandBookmaker:
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Total coins bet : {}\nTotal coins paid : {} \nTotal profit : {}```".format(race, total_bet, total_paid, total_bet-total_paid))
+        self.session.commit()
+
+    @commands.command(help = "Cancel a match")
+    @is_channel(channel_name = bookmaker_channel)
+    @commands.has_role(bookmaker_role)
+    async def cancelMatch(self, race_id) :
+        if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
+            await self.bot.say("This race deosn't exist")
+            return
+        race = self.session.query(Race).get(race_id)
+        if not race.ongoing :
+            await self.bot.say("The race is already closed")
+            return
+        DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
+        totalbet = 0
+        for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
+            better = bet.better
+            totalbet = totalbet + bet.coin_bet
+            better.coin = better.coin + bet.coin_bet
+            DaCream.coin = DaCream.coin - bet.coin_bet
+        bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+        await self.bot.send_message(bot_channel,("```Match#{} is canceled, bet money has been refunded```").format(race.id))
+        race.ongoing = False
+        race.betsOn = False
+        board_channel = self.bot.get_channel(board_id)
+        board_message = await self.bot.get_message(board_channel, board_message_id)
+        await self.bot.edit_message(board_message,displayOpenRaces(self.session))
+        sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
+        await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Match#{} is canceled, {} coins have been refunded```".format(race,race.id,totalbet))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 

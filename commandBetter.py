@@ -23,6 +23,7 @@ board_id = os.environ.get('BOARD_ID')
 board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
 BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
+BET_HISTORY = os.environ.get('BET_HISTORY')
 
 class CommandBetter:
     def __init__(self, bot, session):
@@ -129,6 +130,8 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         await self.bot.send_message(bot_channel,"```{} just bet {} coin that {} will win match#{}```".format(better.name,bet.coin_bet,winner.name,bet.race_id))
         board_channel = self.bot.get_channel(board_id)
         board_message = await self.bot.get_message(board_channel, board_message_id)
+        bet_history_channel = discord.utils.get(self.bot.get_all_channels(),name=BET_HISTORY)
+        await self.bot.send_message(bet_history_channel,"```{} just bet {} coin that {} will win match#{} at {} rate```".format(better.name,bet.coin_bet,winner.name,bet.race_id,bet.odd))
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
 
 
