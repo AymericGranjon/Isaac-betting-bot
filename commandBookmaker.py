@@ -261,9 +261,15 @@ class CommandBookmaker:
         DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
         total_bet = 0
         total_paid = 0
+        nb_bet = 0
+        nb_bet_won = 0
+        coin_bet_win = 0
         for bet in self.session.query(Bet).filter(Bet.race_id == race_id) : #Regroup better
             total_bet = total_bet + bet.coin_bet
+            nb_bet = nb_bet +1
             if bet.winner.name == winner_name :
+                nb_bet_won = nb_bet_won +1
+                coin_bet_win = coin_bet_win + bet.coin_bet
                 better = bet.better
                 better.coin = better.coin + round(bet.coin_bet*bet.odd)
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
@@ -282,7 +288,7 @@ class CommandBookmaker:
         race.betsOn = False
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
-        await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Total coins bet : {}\nTotal coins paid : {} \nTotal profit : {}```".format(race, total_bet, total_paid, total_bet-total_paid))
+        await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Total coins bet : {} \n *{} bets for {} ({} coins) \n *{} bets for {} ({} coins) \nTotal coins paid : {} \nTotal profit : {}```".format(race, total_bet,nb_bet_won,winner_name,coin_bet_win,nb_bet - nb_bet_won, loser_name, total_bet-coin_bet_win, total_paid, total_bet-total_paid))
         self.session.commit()
 
     @commands.command(help = "Cancel a match")
@@ -314,6 +320,22 @@ class CommandBookmaker:
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Match#{} is canceled, {} coins have been refunded```".format(race,race.id,totalbet))
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
+
+    @commands.command(help = "Link racer and better")
+    @is_channel(channel_name = bookmaker_channel)
+    @commands.has_role(bookmaker_role)
+    async def linkRacer(self, better_name, racer_name) :
+        if not self.session.query(exists().where(Better.name == better_name)).scalar():
+            await self.bot.say("This better doesn't exist")
+            return
+        if not self.session.query(exists().where(Racer.name == racer_name)).scalar():
+            await self.bot.say("This better doesn't exist")
+            return
+        better =  self.session.query(Better).filter(Better.name == better_name).first()
+        racer =  self.session.query(Racer).filter(Racer.name == racer_name).first()
+        racer.better_id = better.id
+        await self.bot.say("```{} (racer) has been linked to {} (better)```".format(racer.name, better.name))
+        self.session.commit()
 
     @commands.command(help = "Give an user coins")
     @is_channel(channel_name = bookmaker_channel)

@@ -1,5 +1,11 @@
 from discord.ext import commands
+import os
 import discord
+import dotenv
+
+dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
+board_id = os.environ.get('BOARD_ID')
 
 class CommandErrorHandler:
     def __init__(self, bot):
@@ -31,9 +37,17 @@ class CommandErrorHandler:
                 pass
 
         elif isinstance(error, commands.UserInputError):
-            await self.bot.send_message(ctx.message.channel, "Bad arguments")
+            bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+            board_channel = self.bot.get_channel(board_id)
+            if ctx.message.channel == board_channel :
+                await self.bot.send_message(bot_channel, "Bad arguments")
+            else : await self.bot.send_message(ctx.message.channel, "Bad arguments")
             return
 
         elif isinstance(error, commands.CommandNotFound):
-            await self.bot.send_message(ctx.message.channel, "{} is not a valid command".format(ctx.message.content))
+            bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+            board_channel = self.bot.get_channel(board_id)
+            if ctx.message.channel == board_channel :
+                await self.bot.send_message(bot_channel, "Bad arguments")
+            else : await self.bot.send_message(ctx.message.channel, "Bad arguments")
             return

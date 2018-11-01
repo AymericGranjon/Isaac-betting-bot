@@ -12,6 +12,8 @@ class Racer(Base):
     name = Column(String)
     name_racing = Column(String)
     name_trueskill = Column(String)
+    better_id = Column(Integer, ForeignKey('betters.id'))
+    better = relationship("Better")
 
     def __repr__(self):
         return "<Racer(name='%s')>" % (

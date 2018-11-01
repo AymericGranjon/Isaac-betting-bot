@@ -71,7 +71,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True,
                  help = "Get the amount of coin you or an better have", usage = "!coin <better1> <better2> ...",
-                 aliases = ["coins"])
+                 aliases = ["coins","c"])
     async def coin(self, ctx, *users) :
         # todo : support @
         if len(users) == 0 :
@@ -106,12 +106,16 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             await self.bot.send_message(bot_channel,"{} is not in this race".format(winner_name))
             return
         better =  self.session.query(Better).get(ctx.message.author.id)
-        emoji = get(self.bot.get_all_emojis(), name='PunOko')
+        pikaO = get(self.bot.get_all_emojis(), name='pikaO')
+        if (better.id == race.racer1.better_id or better.id == race.racer2.better_id) :
+            await self.bot.send_message(bot_channel,"{} just tried to bet on their own race {}".format(better.name,pikaO))
+            return
+        punOko = get(self.bot.get_all_emojis(), name='PunOko')
         if coin.isdigit() == False :
-            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(emoji))
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(punOko))
             return
         if  int(coin) <= 0 :
-            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(emoji))
+            await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(punOko))
             return
         winner = self.session.query(Racer).filter(Racer.name == winner_name).first()
         if race.racer1_id == winner.id :
