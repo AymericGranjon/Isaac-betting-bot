@@ -24,7 +24,7 @@ db_racing = os.environ.get('DB_RACING')
 bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
 BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 SUMUP_CHANNEL = os.environ.get('SUMUP_CHANNEL')
-commision = 0.9 #We take 10% of the winnings, 1-commision actually
+commision = 0.8 #We take 10% of the winnings, 1-commision actually
 
 def displayOpenRaces(session): #use PrettyTables
     toDisplayOn = ""

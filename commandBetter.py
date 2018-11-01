@@ -2,6 +2,7 @@ import os
 import re
 import dotenv
 import discord
+import math
 from discord.ext import commands
 import sqlalchemy
 from sqlalchemy import create_engine, ForeignKey
@@ -181,28 +182,30 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         nbBetUpdate = 10
         nbCoinUpdate = 3500
         totalCoin = 0
-        totalPayoutRacer1 = 0
-        totalPayoutRacer2 = 0
+        totalBetRacer1 = 1
+        totalBetRacer2 = 1
         maxDiff = 0.05
         nbBet = 0
         for bet in matchBets : #Moyenne exponentielle ?
             nbBet = nbBet + 1
             totalCoin = totalCoin + bet.coin_bet
-            totalPayoutRacer1 = totalPayoutRacer1 +  bet.coin_bet*bet.odd*(bet.winner_id == race.racer1_id)
-            totalPayoutRacer2 = totalPayoutRacer2 +  bet.coin_bet*bet.odd*(bet.winner_id == race.racer2_id)
+            totalBetRacer1 = totalBetRacer1 +  bet.coin_bet*(bet.winner_id == race.racer1_id)
+            totalBetRacer2 = totalBetRacer2 +  bet.coin_bet*(bet.winner_id == race.racer2_id)
             lastBet = bet
 
         if nbBet%nbBetUpdate == 0 or totalCoin%nbCoinUpdate < lastBet.coin_bet :
             winRate1 =  1/((race.odd1 -1)/commision + 1)
             winRate2 = 1/((race.odd2 -1)/commision + 1)
-            if abs(totalPayoutRacer1/totalCoin - winRate1) > maxDiff :
-                if (race.odd1 +0.2*(1/((totalPayoutRacer1/totalCoin -1)/commision + 1)))/1.2 >=1.05 :
-                    race.odd1 = round((race.odd1 +0.2*(1/((totalPayoutRacer1/totalCoin -1)/commision + 1)))/1.2,2)
-                else : race.odd1 = 1.05
-            if abs(totalPayoutRacer2/totalCoin - winRate2) > maxDiff :
-                if (race.odd2 +0.2*(1/((totalPayoutRacer2/totalCoin -1)/commision + 1)))/1.2 >=1.05 :
-                    race.odd2 = round((race.odd2 +0.2*(1/((totalPayoutRacer2/totalCoin -1)/commision + 1)))/1.2,2)
-                else : race.odd2 = 1.05
+            if abs(totalBetRacer1/totalCoin - winRate1) > maxDiff :
+                if  abs(max(min(round((race.odd1 +0.2*(1+(1/(totalBetRacer1/totalCoin) - 1)*commision))/1.2,2),10),1.05) - race.odd1) <= 2 :
+                    race.odd1 = max(min(round((race.odd1 +0.2*(1+(1/(totalBetRacer1/totalCoin) - 1)*commision))/1.2,2),10),1.05)
+                else : race.odd1 = race.odd1 + math.copysign(1,max(min(round((race.odd1 +0.2*(1+(1/(totalBetRacer1/totalCoin) - 1)*commision))/1.2,2),10),1.05) - race.odd1)*2
+            if abs(totalBetRacer2/totalCoin - winRate2) > maxDiff :
+                if  abs(max(min(round((race.odd2 +0.2*(1+(1/(totalBetRacer2/totalCoin) - 1)*commision))/1.2,2),10),1.05) - race.odd2) <= 2 :
+                    race.odd2 = max(min(round((race.odd2 +0.2*(1+(1/(totalBetRacer2/totalCoin) - 1)*commision))/1.2,2),10),1.05)
+                else : race.odd2 = race.odd2 + math.copysign(1,max(min(round((race.odd2 +0.2*(1+(1/(totalBetRacer2/totalCoin) - 1)*commision))/1.2,2),10),1.05) - race.odd2)*2
+            race.odd1 = round(min(max(race.odd1,1.05),10),2)
+            race.odd2 = round(min(max(race.odd2,1.05),10),2)
             self.session.commit()
 
 def setup(bot):
