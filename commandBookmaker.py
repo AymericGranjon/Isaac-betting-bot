@@ -229,13 +229,14 @@ class CommandBookmaker:
         race = self.session.query(Race).get(race_id)
         if race.racer1.name == racer_name :
             race.odd1 = odd
-        elif race.racer1.name == racer_name :
-            race.odd1 = odd
+        elif race.racer2.name == racer_name :
+            race.odd2 = odd
         else :
             await self.bot.say("{} is not in this race".format(racer_name))
         board_channel = self.bot.get_channel(board_id)
         board_message = await self.bot.get_message(board_channel, board_message_id)
         await self.bot.edit_message(board_message,displayOpenRaces(self.session))
+        self.session.commit()
 
     @commands.command(help = "Close a match and give winners their due")
     @is_channel(channel_name = bookmaker_channel)
