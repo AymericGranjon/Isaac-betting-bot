@@ -13,7 +13,7 @@ import mysql.connector
 import itertools
 import math
 import trueskill
-
+from beautifultable import BeautifulTable
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
 db_adress = os.environ.get('DB_ADRESS')
@@ -26,17 +26,26 @@ BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 SUMUP_CHANNEL = os.environ.get('SUMUP_CHANNEL')
 commision = 0.8 #We take 10% of the winnings, 1-commision actually
 
-def displayOpenRaces(session): #use PrettyTables
-    toDisplayOn = ""
-    toDisplayOff = ""
+
+def displayOpenRaces(session):
+    open = BeautifulTable()
+    open.header_separator_char = "═"
+    close = BeautifulTable()
+    close.header_separator_char = "═"
+    open.column_headers = ["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"]
+    close.column_headers = ["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"]
     for race in session.query(Race).filter(Race.ongoing == True):
         if race.betsOn == True :
-            toDisplayOn = toDisplayOn + "\n" +  str(race)
+            open.append_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
         else :
-            toDisplayOff = toDisplayOff + "\n" +  str(race)
-    if toDisplayOn == "" : toDisplayOn = " "
-    if toDisplayOff == "" : toDisplayOff = " "
-    return "Open bets : ```"+toDisplayOn+"``` \n Closed bets : \n```" + toDisplayOff+"```"
+            close.append_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
+    if open.get_string() :
+         open_string = open.get_string()
+    else : open_string = " "
+    if close.get_string() :
+         close_string = close.get_string()
+    else : close_string = " "
+    return "Open bets : ```"+open_string+"``` \n Closed bets : \n```" + close_string+"```"
 
 class CommandBookmaker:
     def __init__(self, bot, session):
@@ -173,6 +182,9 @@ class CommandBookmaker:
         if race.betsOn == True :
             await self.bot.say("The bets are already opened for this race")
             return
+        if race.ongoing == False :
+            await self.bot.say("This race is done")
+            return
         race.betsOn = True
         await self.bot.say("The bets have been opened")
         self.session.commit()
@@ -243,7 +255,7 @@ class CommandBookmaker:
     @commands.has_role(bookmaker_role)
     async def closeMatch(self, race_id, winner_name) :
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race deosn't exist")
+            await self.bot.say("This race doesn't exist")
             return
         race = self.session.query(Race).get(race_id)
         if not race.ongoing :
