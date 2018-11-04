@@ -13,7 +13,9 @@ import mysql.connector
 import itertools
 import math
 import trueskill
-from beautifultable import BeautifulTable
+import texttable as tt
+
+
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
 db_adress = os.environ.get('DB_ADRESS')
@@ -39,22 +41,24 @@ async def closeBetScheduled (race_id,bot, session) :
     await bot.send_message(board_channel,displayOpenRaces(session))
 
 def displayOpenRaces(session):
-    open = BeautifulTable()
-    open.header_separator_char = "═"
-    close = BeautifulTable()
-    close.header_separator_char = "═"
-    open.column_headers = ["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"]
-    close.column_headers = ["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"]
+    open = tt.Texttable()
+    open.set_max_width(0)
+    open.set_precision(2)
+    open.header(["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"])
+    close = tt.Texttable()
+    close.set_max_width(0)
+    close.set_precision(2)
+    close.header(["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"])
     for race in session.query(Race).filter(Race.ongoing == True):
         if race.betsOn == True :
-            open.append_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
+            open.add_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
         else :
-            close.append_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
-    if open.get_string() :
-         open_string = open.get_string()
+            close.add_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
+    if open.draw() :
+         open_string = open.draw()
     else : open_string = " "
-    if close.get_string() :
-         close_string = close.get_string()
+    if close.draw() :
+         close_string = close.draw()
     else : close_string = " "
     return "Open bets : ```"+open_string+"``` \n Closed bets : \n```" + close_string+"```"
 

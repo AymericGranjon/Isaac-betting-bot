@@ -3,5 +3,5 @@ discord.py
 mysql-connector
 trueskill
 python-dotenv
-beautifultables
+texttable
 apscheduler
