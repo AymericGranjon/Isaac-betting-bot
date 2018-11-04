@@ -11,6 +11,11 @@ from ErrorHandler import CommandErrorHandler
 from commandBetter import CommandBetter
 from commandBookmaker import CommandBookmaker, displayOpenRaces
 
+from datetime import datetime, timedelta
+import sys
+from apscheduler.schedulers.asyncio  import AsyncIOScheduler
+import asyncio
+
 import discord
 from discord.ext import commands
 
@@ -18,8 +23,8 @@ dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .
 db_adress = os.environ.get('DB_ADRESS')
 TOKEN = os.environ.get('BOT_TOKEN')
 board_id = os.environ.get('BOARD_ID')
-board_message_id = os.environ.get('BOARD_MESSAGE_ID')
 bookmaker_role = os.environ.get('BOOKMAKER_ROLE')
+BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 
 engine = create_engine(db_adress, echo =False)
 Session = sessionmaker(bind=engine)
@@ -27,14 +32,14 @@ Session = sessionmaker(bind=engine)
 
 
 def main() :
-
+    scheduler = AsyncIOScheduler()
+    scheduler.start()
     bot = commands.Bot(command_prefix='!')
     session = Session()
     bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
-    bot.add_cog(CommandBookmaker(bot,session))
+    bot.add_cog(CommandBookmaker(bot,session,scheduler))
     Base.metadata.create_all(engine)
-
 
 
     @bot.event
@@ -47,8 +52,10 @@ def main() :
                 session.add(better)
         session.commit()
         board_channel = bot.get_channel(board_id)
-        board_message = await bot.get_message(board_channel, board_message_id)
-        await bot.edit_message(board_message,displayOpenRaces(session))
+        message = bot.logs_from(board_channel, limit =1)
+        async for m in message :
+            await bot.delete_message(m)
+        await bot.send_message(board_channel,displayOpenRaces(session))
 
 
     @bot.event
