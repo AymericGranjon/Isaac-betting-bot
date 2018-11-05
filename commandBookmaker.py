@@ -426,10 +426,6 @@ class CommandBookmaker:
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def racers(self) :
-        list = tt.Texttable()
-        list.set_max_width(0)
-        list.header(["Name","R+'s name","Trueskill's name"])
+        await self.bot.say("Name | R+ | Trueskill")
         for racer in self.session.query(Racer) :
-            list.add_row([racer.name,racer.name_racing, racer.name_trueskill])
-        list_string = list.draw()
-        await self.bot.say("List of all the racers : (name, R+'s name, Trueskill's name) ```{}```".format(list_string))
+            await self.bot.say(str(racer))
