@@ -18,6 +18,8 @@ class Racer(Base):
     def __repr__(self):
         return "<Racer(name='%s')>" % (
                              self.name)
+    def __str__(self) :
+        return "{} | {} | {}".format(self.name, self.name_racing, self.name_trueskill)
 
 class Better(Base):
     __tablename__ = 'betters'
