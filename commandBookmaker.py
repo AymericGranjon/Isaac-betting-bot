@@ -431,4 +431,5 @@ class CommandBookmaker:
         list.header(["Name","R+'s name","Trueskill's name"])
         for racer in self.session.query(Racer) :
             list.add_row([racer.name,racer.name_racing, racer.name_trueskill])
-        await self.bot.say("List of all the racers : (name, R+'s name, Trueskill's name) ```{}```".format(list.draw()))
+        list_string = list.draw()
+        await self.bot.say("List of all the racers : (name, R+'s name, Trueskill's name) ```{}```".format(list_string))
