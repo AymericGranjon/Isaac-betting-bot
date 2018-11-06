@@ -14,6 +14,7 @@ from classes import Base, Racer, Bet, Race, Better
 from commandBookmaker import commision, displayOpenRaces
 import mysql.connector
 from discord.utils import get
+from sqlalchemy import func
 
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
@@ -101,7 +102,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         if not race.betsOn :
             await self.bot.send_message(bot_channel,"The bets for this race are closed")
             return
-        if  not (race.racer1.name == winner_name or race.racer2.name == winner_name ) :
+        if  not (race.racer1.name.lower() == winner_name.lower() or race.racer2.name.lower() == winner_name.lower() ) :
             await self.bot.send_message(bot_channel,"{} is not in this race".format(winner_name))
             return
         better =  self.session.query(Better).get(ctx.message.author.id)
@@ -116,7 +117,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         if  int(coin) <= 0 :
             await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(punOko))
             return
-        winner = self.session.query(Racer).filter(Racer.name == winner_name).first()
+        winner = self.session.query(Racer).filter(func.lower(Racer.name) == func.lower(winner_name)).first()
         if race.racer1_id == winner.id :
             odd = race.odd1
         elif race.racer2_id == winner.id :
@@ -135,10 +136,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         board_channel = self.bot.get_channel(board_id)
         bet_history_channel = discord.utils.get(self.bot.get_all_channels(),name=BET_HISTORY)
         await self.bot.send_message(bet_history_channel,"```{} just bet {} coin that {} will win match#{} at {} rate```".format(better.name,bet.coin_bet,winner.name,bet.race_id,bet.odd))
-        message = self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
 
 
     @is_channel(channel_name = BOT_CHANNEL)

@@ -38,29 +38,32 @@ async def closeBetScheduled (race_id,bot, session) :
     message = bot.logs_from(board_channel, limit =1)
     async for m in message :
         await bot.delete_message(m)
-    await bot.send_message(board_channel,displayOpenRaces(session))
+    await displayOpenRaces(session,bot)
 
-def displayOpenRaces(session):
-    open = tt.Texttable()
-    open.set_max_width(0)
-    open.set_precision(2)
-    open.header(["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"])
-    close = tt.Texttable()
-    close.set_max_width(0)
-    close.set_precision(2)
-    close.header(["Match#","Racer 1","Rate 1","Racer 2","Rate 2","Tournament","Format"])
-    for race in session.query(Race).filter(Race.ongoing == True):
-        if race.betsOn == True :
-            open.add_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
+async def displayOpenRaces(session,bot):
+    messages = ["Open bets :"]
+    for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True):
+        messages.append("```" + str(race) + "```")
+    messages.append("Closed bets :")
+    for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False):
+        messages.append("```" + str(race) + "```")
+    board_channel = bot.get_channel(board_id)
+    message = bot.logs_from(board_channel, limit =100)
+    async for m in message :
+        await bot.delete_message(m)
+    count_message = 0
+    message2send = ""
+    for message in messages :
+        if count_message == 5 :
+            await bot.send_message(board_channel,message2send)
+            count_message = 0
+            message2send = ""
         else :
-            close.add_row([race.id,race.racer1.name,race.odd1,race.racer2.name,race.odd2,race.tournament.name,race.format])
-    if open.draw() :
-         open_string = open.draw()
-    else : open_string = " "
-    if close.draw() :
-         close_string = close.draw()
-    else : close_string = " "
-    return "Open bets : ```"+open_string+"``` \n Closed bets : \n```" + close_string+"```"
+            message2send = message2send + message
+            count_message = count_message + 1
+    if count_message != 0 :
+        await bot.send_message(board_channel,message2send)
+
 
 class CommandBookmaker:
     def __init__(self, bot, session, scheduler):
@@ -139,10 +142,7 @@ class CommandBookmaker:
         self.session.commit()
         await self.bot.say("```Match created : \n" + str(race)+"```")
         board_channel = self.bot.get_channel(board_id)
-        message = self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
 
     @commands.command(help = "Add a tournament", aliases = ["addTourney","tourney","Tourney","tournament"])
     @is_channel(channel_name = bookmaker_channel)
@@ -184,11 +184,7 @@ class CommandBookmaker:
         race.betsOn = False
         await self.bot.say("The bets have been closed")
         self.session.commit()
-        board_channel = self.bot.get_channel(board_id)
-        message =  self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
 
 
     @commands.command(help = "Open the bets for a match")
@@ -208,11 +204,7 @@ class CommandBookmaker:
         race.betsOn = True
         await self.bot.say("The bets have been opened")
         self.session.commit()
-        board_channel = self.bot.get_channel(board_id)
-        message =  self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
 
     @commands.command(help = "Add a racer")
     @is_channel(channel_name = bookmaker_channel)
@@ -267,11 +259,7 @@ class CommandBookmaker:
             race.odd2 = odd
         else :
             await self.bot.say("{} is not in this race".format(racer_name))
-        board_channel = self.bot.get_channel(board_id)
-        message = self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
         self.session.commit()
 
     @commands.command(help = "Close a match and give winners their due")
@@ -311,16 +299,14 @@ class CommandBookmaker:
                 winner_message = winner_message + "* {} ({}->{}) \n".format(better.name, bet.coin_bet,round(bet.coin_bet*bet.odd)) #If a better win multiple times, group it
                 DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
                 total_paid = round(bet.coin_bet*bet.odd) + total_paid
-        message = self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
+        bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
         if winner_message == "" :
-            await self.bot.send_message(board_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
+            await self.bot.send_message(bot_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
-            await self.bot.send_message(board_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
+            await self.bot.send_message(bot_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
         race.ongoing = False
         race.betsOn = False
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Winner : {} \nTotal coins bet :{} \n{} bets for {} ({} coins) \n{} bets for {} ({} coins) \nTotal coins paid : {} \nTotal profit : {}```".format(race, winner_name, total_bet,nb_bet_won,winner_name,coin_bet_win,nb_bet - nb_bet_won, loser_name, total_bet-coin_bet_win, total_paid, total_bet-total_paid))
         self.session.commit()
@@ -348,10 +334,7 @@ class CommandBookmaker:
         race.ongoing = False
         race.betsOn = False
         board_channel = self.bot.get_channel(board_id)
-        message = self.bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await self.bot.delete_message(m)
-        await self.bot.send_message(board_channel,displayOpenRaces(self.session))
+        await displayOpenRaces(self.session,self.bot)
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Match#{} is canceled, {} coins have been refunded```".format(race,race.id,totalbet))
         self.session.commit()

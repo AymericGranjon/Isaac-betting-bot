@@ -51,12 +51,7 @@ def main() :
                 better = Better(id = member.id, name = member.display_name, coin = 500)
                 session.add(better)
         session.commit()
-        board_channel = bot.get_channel(board_id)
-        message = bot.logs_from(board_channel, limit =1)
-        async for m in message :
-            await bot.delete_message(m)
-        await bot.send_message(board_channel,displayOpenRaces(session))
-
+        await displayOpenRaces(session,bot)
 
     @bot.event
     async def on_member_join(member) :     #add member on the db and give 500 on join
