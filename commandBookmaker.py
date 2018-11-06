@@ -14,7 +14,8 @@ import itertools
 import math
 import trueskill
 import texttable as tt
-
+import urllib.request
+import json
 
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
@@ -81,6 +82,16 @@ class CommandBookmaker:
         engineR = create_engine(db_racing, echo =False)
         SessionR = sessionmaker(bind=engineR)
         sessionR = SessionR()
+        contents_seeded = urllib.request.urlopen("https://isaacrankings.com/api/ratings/seeded").read()
+        contents_unseeded = urllib.request.urlopen("https://isaacrankings.com/api/ratings/unseeded").read()
+        contents_mixed = urllib.request.urlopen("https://isaacrankings.com/api/ratings/mixed").read()
+        ts_seeded = json.loads(contents_seeded)
+        ts_unseeded = json.loads(contents_unseeded)
+        ts_mixed = json.loads(contents_mixed)
+        racer1_tournament = None
+        racer2_tournament = None
+        winrate_tournament = None
+
         if format == "multiple" :
             query_racer1 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer1_name)
             query_racer2 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer2_name)
@@ -90,8 +101,14 @@ class CommandBookmaker:
             racer2_trueskill= racer2_trueskill.first()
             racer1 = [[(racer1_trueskill[0]+racer1_trueskill[2]+racer1_trueskill[4])/3,(racer1_trueskill[1]+racer1_trueskill[3]+racer1_trueskill[5])/3]]
             racer2 = [[(racer2_trueskill[0]+racer2_trueskill[2]+racer2_trueskill[4])/3,(racer2_trueskill[1]+racer2_trueskill[3]+racer2_trueskill[5])/3]]
+            if (racer1_name in ts_mixed["data"]) and (racer2_name in ts_mixed["data"]) :
+                racer1_tournament = [[ts_mixed["data"][racer1_name]["mu"],ts_mixed["data"][racer1_name]["sigma"]]]
+                racer2_tournament = [[ts_mixed["data"][racer2_name]["mu"],ts_mixed["data"][racer2_name]["sigma"]]]
 
         else :
+            if format == "seeded" :
+                ts_gen = ts_seeded
+            else : ts_gen = ts_unseeded
             query_racer1 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer1_name)
             query_racer2 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer2_name)
             racer1_trueskill = sessionR.execute(query_racer1)
@@ -100,13 +117,27 @@ class CommandBookmaker:
             racer2_trueskill= racer2_trueskill.first()
             racer1 = [[racer1_trueskill[0], racer1_trueskill[1]]]
             racer2 = [[racer2_trueskill[0], racer2_trueskill[1]]]
+            if (racer1_name in ts_gen["data"]) and (racer2_name in ts_gen["data"]) :
+                racer1_tournament = [[ts_gen["data"][racer1_name]["mu"],ts_gen["data"][racer1_name]["sigma"]]]
+                racer2_tournament = [[ts_gen["data"][racer2_name]["mu"],ts_gen["data"][racer2_name]["sigma"]]]
+
         delta_mu = sum(format[0] for format in racer1) - sum(format[0] for format in racer2)
         sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1, racer2))
         size = len(racer1) + len(racer2)
         denom = math.sqrt(size * (trueskill.BETA * trueskill.BETA) + sum_sigma)
         ts = trueskill.global_env()
         sessionR.close()
-        return round(1+(1/ts.cdf(delta_mu / denom) - 1)*commision,2)
+        winrate_racing = ts.cdf(delta_mu / denom)
+        if not (racer1_tournament is None) :
+            delta_mu = sum(format[0] for format in racer1_tournament) - sum(format[0] for format in racer2_tournament)
+            sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1, racer2))
+            size = len(racer1) + len(racer2)
+            denom = math.sqrt(size * (trueskill.BETA * trueskill.BETA) + sum_sigma)
+            ts = trueskill.global_env()
+            winrate_tournament = ts.cdf(delta_mu / denom)
+            winrate = winrate_racing*0.3 + winrate_tournament*0.7
+        else : winrate = winrate_racing
+        return round(1+(1/winrate - 1)*commision,2)
 
     @commands.command()
     @is_channel(channel_name = bookmaker_channel)
@@ -116,7 +147,7 @@ class CommandBookmaker:
         return
 
 
-    @commands.command(help = "Add a match, open by default, format mutiple by default")
+    @commands.command(help = "Add a match, open by default, format (optional) of the tournament by default")
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def addMatch(self, racer1_name, racer2_name, tournament, *format) :
@@ -338,6 +369,9 @@ class CommandBookmaker:
         await displayOpenRaces(self.session,self.bot)
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Match#{} is canceled, {} coins have been refunded```".format(race,race.id,totalbet))
+        for job in self.scheduler.get_jobs() :
+            if job.args[0] == race_id :
+                job.remove()
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 
@@ -413,6 +447,6 @@ class CommandBookmaker:
         await self.bot.say("Name | R+ | Trueskill | Better")
         for racer in self.session.query(Racer) :
             if racer.better :
-                await self.bot.say(str(racer)+"| {}".format(racer.better.name))
+                await self.bot.say(str(racer)+" | {}".format(racer.better.name))
             else :
                 await self.bot.say(str(racer)+" | None")
