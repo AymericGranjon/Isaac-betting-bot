@@ -3,5 +3,4 @@ discord.py
 mysql-connector
 trueskill
 python-dotenv
-texttable
 apscheduler
