@@ -410,6 +410,9 @@ class CommandBookmaker:
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def racers(self) :
-        await self.bot.say("Name | R+ | Trueskill")
+        await self.bot.say("Name | R+ | Trueskill | Better")
         for racer in self.session.query(Racer) :
-            await self.bot.say(str(racer))
+            if racer.better :
+                await self.bot.say(str(racer)+"| {}".format(racer.better.name))
+            else :
+                await self.bot.say(str(racer)+" | None")
