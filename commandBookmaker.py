@@ -55,6 +55,7 @@ async def displayOpenRaces(session,bot):
     message2send = ""
     for message in messages :
         if count_message == 5 :
+            message2send = message2send + message
             await bot.send_message(board_channel,message2send)
             count_message = 0
             message2send = ""
