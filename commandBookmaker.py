@@ -78,72 +78,79 @@ class CommandBookmaker:
             return ctx.message.channel.name == channel_name
         return commands.check(predicate)
 
-    def getOddVs(self, racer1_name, racer2_name, format) :
+    def getOddVs(self, racer1, racer2, format) :
+        inTrueskill = 0
         engineR = create_engine(db_racing, echo =False)
         SessionR = sessionmaker(bind=engineR)
         sessionR = SessionR()
         contents_seeded = urllib.request.urlopen("https://isaacrankings.com/api/ratings/seeded").read()
         contents_unseeded = urllib.request.urlopen("https://isaacrankings.com/api/ratings/unseeded").read()
         contents_mixed = urllib.request.urlopen("https://isaacrankings.com/api/ratings/mixed").read()
-        ts_seeded = json.loads(contents_seeded)
-        ts_unseeded = json.loads(contents_unseeded)
-        ts_mixed = json.loads(contents_mixed)
+        ts_seeded = json.loads(contents_seeded.decode('utf-8'))
+        ts_unseeded = json.loads(contents_unseeded.decode('utf-8'))
+        ts_mixed = json.loads(contents_mixed.decode('utf-8'))
         racer1_tournament = None
         racer2_tournament = None
         winrate_tournament = None
 
         if format == "multiple" :
-            query_racer1 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer1_name)
-            query_racer2 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer2_name)
+            query_racer1 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer1.name_racing)
+            query_racer2 = ("""select r1.seeded_trueskill_mu, r1.seeded_trueskill_sigma, r1.unseeded_trueskill_mu, r1.unseeded_trueskill_sigma, r1.diversity_trueskill_mu, r1.diversity_trueskill_sigma  from users r1 where r1.username = '{}';""").format(racer2.name_racing)
             racer1_trueskill = sessionR.execute(query_racer1)
             racer1_trueskill= racer1_trueskill.first()
             racer2_trueskill = sessionR.execute(query_racer2)
             racer2_trueskill= racer2_trueskill.first()
-            racer1 = [[(racer1_trueskill[0]+racer1_trueskill[2]+racer1_trueskill[4])/3,(racer1_trueskill[1]+racer1_trueskill[3]+racer1_trueskill[5])/3]]
-            racer2 = [[(racer2_trueskill[0]+racer2_trueskill[2]+racer2_trueskill[4])/3,(racer2_trueskill[1]+racer2_trueskill[3]+racer2_trueskill[5])/3]]
-            if (racer1_name in ts_mixed["data"]) and (racer2_name in ts_mixed["data"]) :
-                racer1_tournament = [[ts_mixed["data"][racer1_name]["mu"],ts_mixed["data"][racer1_name]["sigma"]]]
-                racer2_tournament = [[ts_mixed["data"][racer2_name]["mu"],ts_mixed["data"][racer2_name]["sigma"]]]
+            racer1_table = [[(racer1_trueskill[0]+racer1_trueskill[2]+racer1_trueskill[4])/3,(racer1_trueskill[1]+racer1_trueskill[3]+racer1_trueskill[5])/3]]
+            racer2_table = [[(racer2_trueskill[0]+racer2_trueskill[2]+racer2_trueskill[4])/3,(racer2_trueskill[1]+racer2_trueskill[3]+racer2_trueskill[5])/3]]
+            if (racer1.name_trueskill in ts_mixed["data"]) and (racer2.name_trueskill in ts_mixed["data"]) :
+                inTrueskill = 1
+                racer1_tournament = [[ts_mixed["data"][racer1.name_trueskill]["mu"],ts_mixed["data"][racer1.name_trueskill]["sigma"]]]
+                racer2_tournament = [[ts_mixed["data"][racer2.name_trueskill]["mu"],ts_mixed["data"][racer2.name_trueskill]["sigma"]]]
 
         else :
             if format == "seeded" :
                 ts_gen = ts_seeded
             else : ts_gen = ts_unseeded
-            query_racer1 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer1_name)
-            query_racer2 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer2_name)
+            query_racer1 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer1.name_racing)
+            query_racer2 = ("""select r.{}_trueskill_mu, r.{}_trueskill_sigma from users r where r.username = '{}';""").format(format,format,racer2.name_racing)
             racer1_trueskill = sessionR.execute(query_racer1)
             racer1_trueskill= racer1_trueskill.first()
             racer2_trueskill = sessionR.execute(query_racer2)
             racer2_trueskill= racer2_trueskill.first()
-            racer1 = [[racer1_trueskill[0], racer1_trueskill[1]]]
-            racer2 = [[racer2_trueskill[0], racer2_trueskill[1]]]
-            if (racer1_name in ts_gen["data"]) and (racer2_name in ts_gen["data"]) :
-                racer1_tournament = [[ts_gen["data"][racer1_name]["mu"],ts_gen["data"][racer1_name]["sigma"]]]
-                racer2_tournament = [[ts_gen["data"][racer2_name]["mu"],ts_gen["data"][racer2_name]["sigma"]]]
+            racer1_table = [[racer1_trueskill[0], racer1_trueskill[1]]]
+            racer2_table = [[racer2_trueskill[0], racer2_trueskill[1]]]
+            if (racer1.name_trueskill in ts_gen["data"]) and (racer2.name_trueskill in ts_gen["data"]) :
+                inTrueskill = 1
+                racer1_tournament = [[ts_gen["data"][racer1.name_trueskill]["mu"],ts_gen["data"][racer1.name_trueskill]["sigma"]]]
+                racer2_tournament = [[ts_gen["data"][racer2.name_trueskill]["mu"],ts_gen["data"][racer2.name_trueskill]["sigma"]]]
 
-        delta_mu = sum(format[0] for format in racer1) - sum(format[0] for format in racer2)
-        sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1, racer2))
-        size = len(racer1) + len(racer2)
+        delta_mu = sum(format[0] for format in racer1_table) - sum(format[0] for format in racer2_table)
+        sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1_table, racer2_table))
+        size = len(racer1_table) + len(racer2_table)
         denom = math.sqrt(size * (trueskill.BETA * trueskill.BETA) + sum_sigma)
         ts = trueskill.global_env()
         sessionR.close()
         winrate_racing = ts.cdf(delta_mu / denom)
         if not (racer1_tournament is None) :
             delta_mu = sum(format[0] for format in racer1_tournament) - sum(format[0] for format in racer2_tournament)
-            sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1, racer2))
-            size = len(racer1) + len(racer2)
+            sum_sigma = sum(format[1] ** 2 for format in itertools.chain(racer1_tournament, racer2_tournament))
+            size = len(racer1_tournament) + len(racer2_tournament)
             denom = math.sqrt(size * (trueskill.BETA * trueskill.BETA) + sum_sigma)
             ts = trueskill.global_env()
             winrate_tournament = ts.cdf(delta_mu / denom)
             winrate = winrate_racing*0.3 + winrate_tournament*0.7
         else : winrate = winrate_racing
-        return round(1+(1/winrate - 1)*commision,2)
+        #print("{} : {} {} {}".format(format, winrate, winrate_racing, winrate_tournament))
+        return [round(1+(1/winrate - 1)*commision,2),inTrueskill]
 
     @commands.command()
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def testOdds(self, racer1_name, racer2_name, format) :
-        await self.bot.say(self.getOddVs(racer1_name, racer2_name, format))
+        racer1 = self.session.query(Racer).filter(Racer.name == racer1_name).first()
+        racer2 = self.session.query(Racer).filter(Racer.name == racer2_name).first()
+        [toOdd1,inTrueskill] = self.getOddVs(racer1, racer2, format)
+        await self.bot.say(" {} {} Trueskill : {}".format(toOdd1,self.getOddVs(racer2, racer1, format)[0],inTrueskill))
         return
 
 
@@ -169,10 +176,14 @@ class CommandBookmaker:
             return
         racer1 = self.session.query(Racer).filter(Racer.name == racer1_name).first()
         racer2 = self.session.query(Racer).filter(Racer.name == racer2_name).first()
-        race = Race(racer1_id = racer1.id, odd1 = self.getOddVs(racer1.name_racing, racer2.name_racing, format), racer2_id = racer2.id, odd2 = self.getOddVs(racer2.name_racing, racer1.name_racing ,format), ongoing = True, betsOn = True, format = format, tournament_id = tournament.id )
+        [toOdd1,inTrueskill] = self.getOddVs(racer1, racer2, format)
+        race = Race(racer1_id = racer1.id, odd1 = toOdd1, racer2_id = racer2.id, odd2 = self.getOddVs(racer2, racer1 ,format)[0], ongoing = True, betsOn = True, format = format, tournament_id = tournament.id )
         self.session.add(race)
         self.session.commit()
-        await self.bot.say("```Match created : \n" + str(race)+"```")
+        if inTrueskill :
+            await self.bot.say("```Match created (using Trueskill): \n" + str(race)+"```")
+        else :
+            await self.bot.say("```Match created (not using Trueskill): \n" + str(race)+"```")
         board_channel = self.bot.get_channel(board_id)
         await displayOpenRaces(self.session,self.bot)
 
@@ -275,6 +286,7 @@ class CommandBookmaker:
             racer.name = new_name
         else :
             await self.bot.say("Wrong database")
+        await self.bot.say(str(racer))
         self.session.commit()
 
     @commands.command(help = "Change the multiplier for a racer in a match")
@@ -450,3 +462,16 @@ class CommandBookmaker:
                 await self.bot.say(str(racer)+" | {}".format(racer.better.name))
             else :
                 await self.bot.say(str(racer)+" | None")
+
+    @commands.command(help = "Get a racers (Name, R+, Trueskill, Better)", aliases = ["getRacer"])
+    @is_channel(channel_name = bookmaker_channel)
+    @commands.has_role(bookmaker_role)
+    async def racer(self, racer_name) :
+        racer =  self.session.query(Racer).filter(Racer.name == racer_name).first()
+        if not racer :
+            await self.bot.say("This racer doesnt't exist")
+            return
+        if racer.better :
+            await self.bot.say(str(racer)+" | {}".format(racer.better.name))
+        else :
+            await self.bot.say(str(racer)+" | None")
