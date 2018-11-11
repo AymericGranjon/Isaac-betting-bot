@@ -187,7 +187,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Top poorest people in the world", aliases = ["losers"])
-    async def bot(self) :
+    async def bottom(self) :
         bets = self.session.query(Bet)
         betters = self.session.query(Better)
         top = [[],[]]
