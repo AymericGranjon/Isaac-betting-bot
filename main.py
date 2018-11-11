@@ -9,11 +9,10 @@ from sqlalchemy.sql import exists
 from classes import Base, Racer, Bet, Race, Better
 from ErrorHandler import CommandErrorHandler
 from commandBetter import CommandBetter
-from commandBookmaker import CommandBookmaker, displayOpenRaces
+from commandBookmaker import CommandBookmaker, displayOpenRaces, closeBetScheduled
 
 from datetime import datetime, timedelta
 import sys
-from apscheduler.schedulers.asyncio  import AsyncIOScheduler
 import asyncio
 
 import discord
@@ -32,13 +31,11 @@ Session = sessionmaker(bind=engine)
 
 
 def main() :
-    scheduler = AsyncIOScheduler()
-    scheduler.start()
     bot = commands.Bot(command_prefix='!')
     session = Session()
     bot.add_cog(CommandErrorHandler(bot))
     bot.add_cog(CommandBetter(bot, session))
-    bot.add_cog(CommandBookmaker(bot,session,scheduler))
+    bot.add_cog(CommandBookmaker(bot,session))
     Base.metadata.create_all(engine)
 
 
@@ -76,6 +73,14 @@ def main() :
             await bot.delete_message(message)
         await bot.process_commands(message)
 
+    async def scheduler() :
+        await bot.wait_until_ready()
+        await asyncio.sleep(10)
+        while True :
+            await closeBetScheduled(bot, session)
+            await asyncio.sleep(60)
+
+    bot.loop.create_task(scheduler())
     bot.run(TOKEN)
 
 if __name__ == '__main__':

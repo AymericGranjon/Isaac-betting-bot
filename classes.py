@@ -1,8 +1,9 @@
 import sqlalchemy
 from sqlalchemy import create_engine, ForeignKey
-from sqlalchemy import Column, Date, Integer, String, Float, Boolean
+from sqlalchemy import Column, Date, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+import datetime
 
 Base = declarative_base()
 
@@ -55,6 +56,7 @@ class Race (Base) :
     format = Column(String) #seeded, diversity, unseeded, multiple
     tournament_id = Column(Integer, ForeignKey('tournaments.id'))
     tournament = relationship("Tournament")
+    winner = Column(Integer, default=0)
     def __str__(self):
         return 'Match #{} : {} ({}) vs {} ({}) - {} ({} format)'.format(self.id, self.racer1.name,self.odd1, self.racer2.name, self.odd2,self.tournament.name, self.format)
 
@@ -66,3 +68,10 @@ class Tournament(Base):
     format = Column(String)
     def __str__(self):
         return "{}, format {}, link : {}".format(self.name, self.format, self.challonge)
+
+class Job(Base) :
+    __tablename__ = 'jobs'
+    id = Column(Integer, primary_key = True)
+    date = Column(DateTime)
+    race_id = Column(Integer, ForeignKey('races.id'))
+    race = relationship("Race")

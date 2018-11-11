@@ -73,10 +73,12 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
                  help = "Get the amount of coin you or an better have", usage = "!coin <better1> <better2> ...",
                  aliases = ["coins","c"])
     async def coin(self, ctx, *users) :
-        # todo : support @
         if len(users) == 0 :
             better = self.session.query(Better).get(ctx.message.author.id)
-            await self.bot.say('You have {:d} coins'.format(better.coin))
+            if better.coin == 0 :
+                await self.bot.say("0 coins you fucking degenerate")
+            else :
+                await self.bot.say('You have {:d} coins'.format(better.coin))
         else :
             for name in users :
                 if self.session.query(exists().where(Better.name == name)).scalar() :
@@ -183,6 +185,36 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             del top[1][index_max]
         await self.bot.say("The top betters are : ```{}```".format(toplist))
 
+    @is_channel(channel_name = BOT_CHANNEL)
+    @commands.command(pass_context=True, help = "Top poorest people in the world", aliases = ["losers"])
+    async def bot(self) :
+        bets = self.session.query(Bet)
+        betters = self.session.query(Better)
+        top = [[],[]]
+        toplist = ""
+        for better in betters :
+            coins = better.coin
+            for bet in self.session.query(Bet).filter(Bet.better == better) :
+                race = bet.race
+                if race.ongoing == True :
+                    coins = coins + bet.coin_bet
+            if int(better.id) != int(self.bot.user.id) :
+                if len(top[0]) == 0 :
+                    top = [[better.name],[coins]]
+                elif len(top[0]) < 10 :
+                    top[0].append(better.name)
+                    top[1].append(coins)
+                elif max(top[1]) >= coins :
+                    index_min = max(range(len(top[1])), key=top[1].__getitem__)
+                    top[0][index_min] = better.name
+                    top[1][index_min] = coins
+        while len(top[0]) != 0 :
+            index_max = min(range(len(top[1])), key=top[1].__getitem__)
+            toplist =  toplist + top[0][index_max] +" ({} coins) \n".format(top[1][index_max])
+            del top[0][index_max]
+            del top[1][index_max]
+        await self.bot.say("The top losers are : ```{}```".format(toplist))
+
     async def updateOdds(self, race) :
         matchBets = self.session.query(Bet).filter(Bet.race_id == race.id)
         nbBetUpdate = 10
@@ -221,7 +253,28 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         better =  self.session.query(Better).get(ctx.message.author.id)
         bets = self.session.query(Bet).filter(Bet.better_id == better.id).order_by(Bet.id.desc()).limit(10)
         for bet in bets :
-            list = list + "Match#{} : {} vs {} on {} for {}, {} coins on {} at {} \n".format(bet.race_id, bet.race.racer1.name,bet.race.racer2.name,bet.race.format,bet.race.tournament.name, bet.coin_bet, bet.winner.name, bet.odd)
+            if bet.race.tournament :
+                list = list + "Match#{} : {} vs {} on {} for {}, {} coins on {} at {} \n".format(bet.race_id, bet.race.racer1.name,bet.race.racer2.name,bet.race.format,bet.race.tournament.name, bet.coin_bet, bet.winner.name, bet.odd)
+            else :
+                list = list + "Match#{} : {} vs {} on {}, {} coins on {} at {} \n".format(bet.race_id, bet.race.racer1.name,bet.race.racer2.name,bet.race.format, bet.coin_bet, bet.winner.name, bet.odd)
         await self.bot.say("Your last 10 bets are : ```" + list + "```")
-def setup(bot):
-    bot.add_cog(Better(bot))
+
+    @is_channel(channel_name = BOT_CHANNEL)
+    @commands.command(pass_context=True, help = "How good are you ?", aliases = ["howgood", "howGood","Howgood"])
+    async def howGoodIAm(self, ctx) :
+        better = self.session.query(Better).get(ctx.message.author.id)
+        won = 0
+        lost = 0
+        profit = 0
+        for bet in self.session.query(Bet).filter(Bet.better_id == better.id) :
+            if (bet.winner_id == bet.race.racer1_id and bet.race.winner == 1) or (bet.winner_id == bet.race.racer2_id and bet.race.winner == 2) :
+                won = won + 1
+                profit = profit + round(bet.coin_bet*bet.odd) - bet.coin_bet
+            elif (bet.winner_id == bet.race.racer1_id and bet.race.winner == 2) or (bet.winner_id == bet.race.racer2_id and bet.race.winner == 1) :
+                lost = lost + 1
+                profit = profit - bet.coin_bet
+        if (won+lost == 0) :
+            winrate = 0
+        else :
+            winrate = round(won*100/(won+lost),2)
+        await self.bot.say("```You won {}/{} bets ({}%) and have a results of {} coins```".format(won,won+lost,winrate,profit))

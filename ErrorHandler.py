@@ -15,7 +15,7 @@ class CommandErrorHandler:
         """The event triggered when an error is raised while invoking a command.
         ctx   : Context
         error : Exception"""
-
+        print(error)
         if hasattr(ctx.command, 'on_error'):
             return
 
@@ -48,6 +48,6 @@ class CommandErrorHandler:
             bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
             board_channel = self.bot.get_channel(board_id)
             if ctx.message.channel == board_channel :
-                await self.bot.send_message(bot_channel, "Bad arguments")
-            else : await self.bot.send_message(ctx.message.channel, "Bad arguments")
+                await self.bot.send_message(bot_channel, "Command doesn't exist")
+            else : await self.bot.send_message(ctx.message.channel, "Command doesn't exist")
             return

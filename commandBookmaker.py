@@ -8,7 +8,7 @@ from sqlalchemy import Column, Date, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
-from classes import Base, Racer, Bet, Race, Better, Tournament
+from classes import Base, Racer, Bet, Race, Better, Tournament, Job
 import mysql.connector
 import itertools
 import math
@@ -16,7 +16,10 @@ import trueskill
 import texttable as tt
 import urllib.request
 import json
-
+import dateparser
+import datetime
+import pytz
+from tzlocal import get_localzone
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))  # Loading .env
 db_adress = os.environ.get('DB_ADRESS')
@@ -28,18 +31,19 @@ BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 SUMUP_CHANNEL = os.environ.get('SUMUP_CHANNEL')
 commision = 0.8 #We take 20% of the winnings, 1-commision actually
 
-async def closeBetScheduled (race_id,bot, session) :
-
+async def closeBetScheduled (bot, session) :
     channel = discord.utils.get(bot.get_all_channels(),name=bookmaker_channel)
-    race = session.query(Race).get(race_id)
-    race.betsOn = False
-    await bot.send_message(channel,"The bets have been closed for the match#{}".format(race_id))
-    session.commit()
-    board_channel = bot.get_channel(board_id)
-    message = bot.logs_from(board_channel, limit =1)
-    async for m in message :
-        await bot.delete_message(m)
-    await displayOpenRaces(session,bot)
+    for job in session.query(Job) :
+        if (job.race.betsOn == True) and (pytz.utc.localize(job.date) <= datetime.datetime.now().astimezone(pytz.utc)) :
+            job.race.betsOn = False
+            await bot.send_message(channel,"```The bets have been closed for the match#{}```".format(job.race.id))
+            session.delete(job)
+            session.commit()
+            board_channel = bot.get_channel(board_id)
+            message = bot.logs_from(board_channel, limit =1)
+            async for m in message :
+                await bot.delete_message(m)
+            await displayOpenRaces(session,bot)
 
 async def displayOpenRaces(session,bot):
     messages = ["Open bets :"]
@@ -68,10 +72,9 @@ async def displayOpenRaces(session,bot):
 
 
 class CommandBookmaker:
-    def __init__(self, bot, session, scheduler):
+    def __init__(self, bot, session):
         self.bot = bot
         self.session = session
-        self.scheduler = scheduler
 
     def is_channel(channel_name):
         def predicate(ctx):
@@ -322,8 +325,10 @@ class CommandBookmaker:
             return
         if race.racer1.name == winner_name :
             loser_name = race.racer2.name
+            race.winner = 1
         else :
             loser_name = race.racer1.name
+            race.winner = 2
         winner_message = ""
         board_channel = self.bot.get_channel(board_id)
         DaCream = self.session.query(Better).filter(Better.id == self.bot.user.id).first()
@@ -381,9 +386,8 @@ class CommandBookmaker:
         await displayOpenRaces(self.session,self.bot)
         sumup_channel = discord.utils.get(self.bot.get_all_channels(),name=SUMUP_CHANNEL)
         await self.bot.send_message(sumup_channel,"**Sum up of {}**\n```Match#{} is canceled, {} coins have been refunded```".format(race,race.id,totalbet))
-        for job in self.scheduler.get_jobs() :
-            if job.args[0] == race_id :
-                job.remove()
+        job = self.session.query(Job).filter(Job.race_id == race_id).first()
+        if job : self.session.delete(job)
         self.session.commit()
 #back up command to cancel the outcome of a race in case of someone fuck up  ?
 
@@ -414,7 +418,7 @@ class CommandBookmaker:
         better.coin = better.coin + int(coin)
         self.session.commit()
 
-    @commands.command(help = "Schedule closing bet")
+    @commands.command(help = "Schedule closing bet (anything dateparser can understand, google it lol)")
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def closeBetTime(self, race_id, time) :
@@ -425,20 +429,24 @@ class CommandBookmaker:
         if race.betsOn == False :
             await self.bot.say("The bets are already closed for this race")
             return
-        for job in self.scheduler.get_jobs() :
-            if job.args[0] == race_id :
-                await self.bot.say("The bets for this match are already scheduled to be closed at {}".format(job.next_run_time.ctime()))
-                return
-        self.scheduler.add_job(closeBetScheduled,'date',run_date = time, args=[race_id,self.bot, self.session])
-        await self.bot.say("```The bets for the match#{} will be closed at {}```".format(race_id,time))
+        if self.session.query(exists().where(Job.race_id == race_id)).scalar() :
+            job = self.session.query(Job).filter(Job.race_id == race_id).first()
+            await self.bot.say("The bets for this match are already scheduled to be closed at {} UTC".format(job.date))
+            return
+        date = dateparser.parse(time)
+        date = date.astimezone(pytz.utc)
+        job = Job(date = date, race_id = race_id, race = race)
+        self.session.add(job)
+        self.session.commit()
+        await self.bot.say("```The bets for the match#{} will be closed at {} UTC```".format(race_id,date))
 
     @commands.command(help = "Get scheduled jobs")
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def getJobs(self) :
         message = ""
-        for job in self.scheduler.get_jobs() :
-            message = message + "Match#{} : {} \n".format(job.args[0],job.next_run_time.ctime())
+        for job in self.session.query(Job) :
+            message = message + "Match#{} : {} UTC \n".format(job.race_id,job.date)
         if message == "" : message = "No jobs are scheduled"
         await self.bot.say("```"+message+"```")
 
@@ -446,11 +454,13 @@ class CommandBookmaker:
     @is_channel(channel_name = bookmaker_channel)
     @commands.has_role(bookmaker_role)
     async def cancelJob(self,race_id) :
-        for job in self.scheduler.get_jobs() :
-            if job.args[0] == race_id :
-                job.remove()
-        await self.bot.say("Schedule for match#{} canceled".format(race_id))
-
+        if not (self.session.query(exists().where(Job.race_id == race_id)).scalar()) :
+            await self.bot.say("No jobs are scheduled for this match")
+            return
+        job = self.session.query(Job).filter(Job.race_id == race_id).first()
+        self.session.delete(job)
+        self.session.commit()
+        await self.bot.say("Job for match#{} has been canceld".format(race_id))
 
     @commands.command(help = "List of all the racers")
     @is_channel(channel_name = bookmaker_channel)

@@ -3,4 +3,4 @@ discord.py
 mysql-connector
 trueskill
 python-dotenv
-apscheduler
+dateparser
