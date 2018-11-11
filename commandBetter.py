@@ -117,6 +117,9 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         if  int(coin) <= 0 :
             await self.bot.send_message(bot_channel,"Stop trying to break me {}".format(punOko))
             return
+        if (better.coin - int(coin) <0) :
+            await self.bot.say("You don't have enough coins. Current balance : {}".format(better.coin))
+            return
         winner = self.session.query(Racer).filter(func.lower(Racer.name) == func.lower(winner_name)).first()
         if race.racer1_id == winner.id :
             odd = race.odd1
@@ -211,5 +214,14 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             race.odd2 = round(min(max(race.odd2,1.05),10),2)
             self.session.commit()
 
+    @is_channel(channel_name = BOT_CHANNEL)
+    @commands.command(pass_context=True, help = "10 last bets", aliases = ["pastbets", "past"])
+    async def pastBets(self, ctx) :
+        list = ""
+        better =  self.session.query(Better).get(ctx.message.author.id)
+        bets = self.session.query(Bet).filter(Bet.better_id == better.id).order_by(Bet.id.desc()).limit(10)
+        for bet in bets :
+            list = list + "Match#{} : {} vs {} on {} for {}, {} coins on {} at {} \n".format(bet.race_id, bet.race.racer1.name,bet.race.racer2.name,bet.race.format,bet.race.tournament.name, bet.coin_bet, bet.winner.name, bet.odd)
+        await self.bot.say("Your last 10 bets are : ```" + list + "```")
 def setup(bot):
     bot.add_cog(Better(bot))
