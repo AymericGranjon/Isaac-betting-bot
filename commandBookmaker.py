@@ -34,7 +34,7 @@ commision = 0.8 #We take 20% of the winnings, 1-commision actually
 async def closeBetScheduled (bot, session) :
     channel = discord.utils.get(bot.get_all_channels(),name=bookmaker_channel)
     for job in session.query(Job) :
-        if (job.race.betsOn == True) and (pytz.utc.localize(job.date) <= datetime.datetime.now().astimezone(pytz.utc)) :
+        if (job.race.betsOn == True) and (pytz.utc.localize(job.date) <= get_localzone().localize(datetime.datetime.now()).astimezone(pytz.utc)) :
             job.race.betsOn = False
             await bot.send_message(channel,"```The bets have been closed for the match#{}```".format(job.race.id))
             session.delete(job)

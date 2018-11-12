@@ -260,21 +260,24 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
         await self.bot.say("Your last 10 bets are : ```" + list + "```")
 
     @is_channel(channel_name = BOT_CHANNEL)
-    @commands.command(pass_context=True, help = "How good are you ?", aliases = ["howgood", "howGood","Howgood"])
+    @commands.command(pass_context=True, help = "How good are you ?", aliases = ["howgood", "howGood","Howgood","howgoodiam"])
     async def howGoodIAm(self, ctx) :
         better = self.session.query(Better).get(ctx.message.author.id)
         won = 0
         lost = 0
         profit = 0
+        coin_lost = 0
+        coin_won =0
         for bet in self.session.query(Bet).filter(Bet.better_id == better.id) :
             if (bet.winner_id == bet.race.racer1_id and bet.race.winner == 1) or (bet.winner_id == bet.race.racer2_id and bet.race.winner == 2) :
                 won = won + 1
-                profit = profit + round(bet.coin_bet*bet.odd) - bet.coin_bet
+                coin_won = coin_won + round(bet.coin_bet*bet.odd) - bet.coin_bet
             elif (bet.winner_id == bet.race.racer1_id and bet.race.winner == 2) or (bet.winner_id == bet.race.racer2_id and bet.race.winner == 1) :
                 lost = lost + 1
-                profit = profit - bet.coin_bet
+                coin_lost = coin_lost + bet.coin_bet
+        profit = coin_won - coin_lost
         if (won+lost == 0) :
             winrate = 0
         else :
             winrate = round(won*100/(won+lost),2)
-        await self.bot.say("```You won {}/{} bets ({}%) and have a results of {} coins```".format(won,won+lost,winrate,profit))
+        await self.bot.say("```You won {}/{} bets ({}%) and have a results of {} coins ({} won, {} lost)```".format(won,won+lost,winrate,profit,coin_won,coin_lost))
