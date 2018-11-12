@@ -29,6 +29,7 @@ db_racing = os.environ.get('DB_RACING')
 bookmaker_channel = os.environ.get('BOOKMAKER_CHANNEL')
 BOT_CHANNEL= os.environ.get('BOT_CHANNEL')
 SUMUP_CHANNEL = os.environ.get('SUMUP_CHANNEL')
+BET_RESULTS = os.environ.get('BET_RESULTS')
 commision = 0.8 #We take 20% of the winnings, 1-commision actually
 
 async def closeBetScheduled (bot, session) :
@@ -354,10 +355,11 @@ class CommandBookmaker:
                 DaCream.coin = DaCream.coin - round(bet.coin_bet*bet.odd)
                 total_paid = round(bet.coin_bet*bet.odd) + total_paid
         bot_channel = discord.utils.get(self.bot.get_all_channels(),name=BOT_CHANNEL)
+        bet_results = discord.utils.get(self.bot.get_all_channels(),name=BET_RESULTS)
         if winner_message == "" :
-            await self.bot.send_message(bot_channel,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
+            await self.bot.send_message(bet_results,("```{} defeated {} ! Nobody would've guessed that !```").format(winner_name, loser_name))
         else :
-            await self.bot.send_message(bot_channel,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
+            await self.bot.send_message(bet_results,("```{} defeated {} ! Congratulations : \n" + winner_message+"```").format(winner_name, loser_name))
         race.ongoing = False
         race.betsOn = False
         await displayOpenRaces(self.session,self.bot)
