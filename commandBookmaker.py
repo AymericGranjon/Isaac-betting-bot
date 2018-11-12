@@ -48,7 +48,12 @@ async def closeBetScheduled (bot, session) :
 async def displayOpenRaces(session,bot):
     messages = ["Open bets :"]
     for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True):
-        messages.append("```" + str(race) + "```")
+        if session.query(exists().where(Job.race_id == race.id)).scalar() :
+            job = session.query(Job).filter(Job.race_id == race.id).first()
+            strdate = job.date.strftime("%a %d %b %H:%M")
+            messages.append("```" + str(race) + " | " + strdate + " UTC"+"```")
+        else :
+            messages.append("```" + str(race) + "```")
     messages.append("Closed bets :")
     for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False):
         messages.append("```" + str(race) + "```")
@@ -439,6 +444,7 @@ class CommandBookmaker:
         self.session.add(job)
         self.session.commit()
         await self.bot.say("```The bets for the match#{} will be closed at {} UTC```".format(race_id,date))
+        await displayOpenRaces(self.session,self.bot)
 
     @commands.command(help = "Get scheduled jobs")
     @is_channel(channel_name = bookmaker_channel)
@@ -461,6 +467,7 @@ class CommandBookmaker:
         self.session.delete(job)
         self.session.commit()
         await self.bot.say("Job for match#{} has been canceld".format(race_id))
+        await displayOpenRaces(self.session,self.bot)
 
     @commands.command(help = "List of all the racers")
     @is_channel(channel_name = bookmaker_channel)
