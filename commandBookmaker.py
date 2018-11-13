@@ -47,31 +47,32 @@ async def closeBetScheduled (bot, session) :
             await displayOpenRaces(session,bot)
 
 async def displayOpenRaces(session,bot):
-    messages = ["Open bets :"]
+    messages = [["Open bets :",datetime.datetime(1900, 1, 1)]]
     for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True):
         if session.query(exists().where(Job.race_id == race.id)).scalar() :
             job = session.query(Job).filter(Job.race_id == race.id).first()
             strdate = job.date.strftime("%a %d %b %H:%M")
-            messages.append("```" + str(race) + " | " + strdate + " UTC"+"```")
+            messages.append(["```" + str(race) + " | " + strdate + " UTC"+"```",job.date])
         else :
-            messages.append("```" + str(race) + "```")
-    messages.append("Closed bets :")
+            messages.append(["```" + str(race) + "```",datetime.datetime(2100, 1, 1)])
+    messages.append(["Closed bets :",datetime.datetime(2101, 1, 1)])
     for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False):
-        messages.append("```" + str(race) + "```")
+        messages.append(["```" + str(race) + "```",datetime.datetime(2102, 1, 1)])
     board_channel = bot.get_channel(board_id)
     message = bot.logs_from(board_channel, limit =100)
     async for m in message :
         await bot.delete_message(m)
     count_message = 0
     message2send = ""
+    messages = sorted(messages,key=lambda x:x[1])
     for message in messages :
         if count_message == 5 :
-            message2send = message2send + message
+            message2send = message2send + message[0]
             await bot.send_message(board_channel,message2send)
             count_message = 0
             message2send = ""
         else :
-            message2send = message2send + message
+            message2send = message2send + message[0]
             count_message = count_message + 1
     if count_message != 0 :
         await bot.send_message(board_channel,message2send)

@@ -251,7 +251,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     async def pastBets(self, ctx) :
         list = ""
         better =  self.session.query(Better).get(ctx.message.author.id)
-        bets = self.session.query(Bet).filter(Bet.better_id == better.id).order_by(Bet.id.desc()).limit(10)
+        bets = self.session.query(Bet).join(Bet.race).filter(Bet.better_id == better.id).filter(Race.ongoing == False).order_by(Bet.id.desc()).limit(10)
         for bet in bets :
             if bet.race.tournament :
                 list = list + "Match#{} : {} vs {} on {} for {}, {} coins on {} at {} \n".format(bet.race_id, bet.race.racer1.name,bet.race.racer2.name,bet.race.format,bet.race.tournament.name, bet.coin_bet, bet.winner.name, bet.odd)
