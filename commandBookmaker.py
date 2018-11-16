@@ -83,9 +83,9 @@ class CommandBookmaker:
         self.bot = bot
         self.session = session
 
-    def is_channel(channel_name):
+    def is_channel(**channel_name):
         def predicate(ctx):
-            return ctx.message.channel.name == channel_name
+            return ctx.message.channel.name in channel_name['channel_name']
         return commands.check(predicate)
 
     def getOddVs(self, racer1, racer2, format) :
@@ -223,39 +223,41 @@ class CommandBookmaker:
         await self.bot.say(str(tournament))
         self.session.commit()
 
-    @commands.command(help = "Close the bets for a match")
-    @is_channel(channel_name = bookmaker_channel)
+    @commands.command(help = "Close the bets for a match", alisases = ["closeBet,closebets,closebet"])
+    @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def closeBets(self,race_id) : #Close race, todo : display  race id and Who vs Who
+        channel = discord.utils.get(self.bot.get_all_channels(),name=bookmaker_channel)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race doesnt't exist")
+            await self.bot.send_message(channel,"This race doesnt't exist")
             return
         race = self.session.query(Race).get(race_id)
         if race.betsOn == False :
-            await self.bot.say("The bets are already closed for this race")
+            await self.bot.send_message(channel,"The bets are already closed for this race")
             return
         race.betsOn = False
-        await self.bot.say("The bets have been closed")
+        await self.bot.send_message(channel,"The bets have been closed")
         self.session.commit()
         await displayOpenRaces(self.session,self.bot)
 
 
-    @commands.command(help = "Open the bets for a match")
-    @is_channel(channel_name = bookmaker_channel)
+    @commands.command(help = "Open the bets for a match",alisases = ["openBet,openbets,openbet"])
+    @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def openBets(self, race_id) : #Close bets, todo : display  race id and Who vs Who
+        channel = discord.utils.get(self.bot.get_all_channels(),name=bookmaker_channel)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race doesn't exist")
+            await self.bot.send_message(channel,"This race doesn't exist")
             return
         race = self.session.query(Race).get(race_id)
         if race.betsOn == True :
-            await self.bot.say("The bets are already opened for this race")
+            await self.bot.send_message(channel,"The bets are already opened for this race")
             return
         if race.ongoing == False :
-            await self.bot.say("This race is done")
+            await self.bot.send_message(channel,"This race is done")
             return
         race.betsOn = True
-        await self.bot.say("The bets have been opened")
+        await self.bot.send_message(channel,"The bets have been opened")
         self.session.commit()
         await displayOpenRaces(self.session,self.bot)
 
@@ -317,18 +319,19 @@ class CommandBookmaker:
         self.session.commit()
 
     @commands.command(help = "Close a match and give winners their due")
-    @is_channel(channel_name = bookmaker_channel)
+    @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def closeMatch(self, race_id, winner_name) :
+        channel = discord.utils.get(self.bot.get_all_channels(),name=bookmaker_channel)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race doesn't exist")
+            await self.bot.send_message(channel,"This race doesn't exist")
             return
         race = self.session.query(Race).get(race_id)
         if not race.ongoing :
-            await self.bot.say("The race is already closed")
+            await self.bot.send_message(channel,"The race is already closed")
             return
         if  not (race.racer1.name == winner_name or race.racer2.name == winner_name ) :
-            await self.bot.say("{} is not in this race".format(winner_name))
+            await self.bot.send_message(channel,"{} is not in this race".format(winner_name))
             return
         if race.racer1.name == winner_name :
             loser_name = race.racer2.name
@@ -373,7 +376,7 @@ class CommandBookmaker:
     @commands.has_role(bookmaker_role)
     async def cancelMatch(self, race_id) :
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This race deosn't exist")
+            await self.bot.say("This race doesn't exist")
             return
         race = self.session.query(Race).get(race_id)
         if not race.ongoing :
@@ -427,26 +430,27 @@ class CommandBookmaker:
         self.session.commit()
 
     @commands.command(help = "Schedule closing bet (anything dateparser can understand, google it lol)")
-    @is_channel(channel_name = bookmaker_channel)
+    @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def closeBetTime(self, race_id, time) :
+        channel = discord.utils.get(self.bot.get_all_channels(),name=bookmaker_channel)
         if (not self.session.query(exists().where(Race.id == race_id)).scalar()) :
-            await self.bot.say("This match doesnt't exist")
+            await self.bot.send_message(channel,"This match doesnt't exist")
             return
         race = self.session.query(Race).get(race_id)
         if race.betsOn == False :
-            await self.bot.say("The bets are already closed for this race")
+            await self.bot.send_message(channel,"The bets are already closed for this race")
             return
         if self.session.query(exists().where(Job.race_id == race_id)).scalar() :
             job = self.session.query(Job).filter(Job.race_id == race_id).first()
-            await self.bot.say("The bets for this match are already scheduled to be closed at {} UTC".format(job.date))
+            await self.bot.send_message(channel,"The bets for this match are already scheduled to be closed at {} UTC".format(job.date))
             return
         date = dateparser.parse(time)
         date = date.astimezone(pytz.utc)
         job = Job(date = date, race_id = race_id, race = race)
         self.session.add(job)
         self.session.commit()
-        await self.bot.say("```The bets for the match#{} will be closed at {} UTC```".format(race_id,date))
+        await self.bot.send_message(channel,"```The bets for the match#{} will be closed at {} UTC```".format(race_id,date))
         await displayOpenRaces(self.session,self.bot)
 
     @commands.command(help = "Get scheduled jobs")

@@ -149,11 +149,13 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     async def currentBets(self, ctx) :
         message = ""
         better = self.session.query(Better).get(ctx.message.author.id)
+        payout = 0
         for bet in self.session.query(Bet).filter(Bet.better_id == better.id) :
             if bet.race.ongoing == True :
                 message = message + "\n" + str(bet)
+                payout = payout + round(bet.coin_bet*bet.odd)
         if message == "" : message = "You have no bet placed"
-        await self.bot.say("Your current bets are : ```"+message+"```")
+        await self.bot.say("Your current bets are : ```"+message+" \nIf all of them are correct you would win {} coins and end up with {}```".format(payout,better.coin+payout))
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Top richest people in the world")
