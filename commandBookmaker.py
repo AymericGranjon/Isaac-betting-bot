@@ -35,16 +35,17 @@ commision = 0.8 #We take 20% of the winnings, 1-commision actually
 async def closeBetScheduled (bot, session) :
     channel = discord.utils.get(bot.get_all_channels(),name=bookmaker_channel)
     for job in session.query(Job) :
-        if (job.race.betsOn == True) and (pytz.utc.localize(job.date) <= get_localzone().localize(datetime.datetime.now()).astimezone(pytz.utc)) :
-            job.race.betsOn = False
-            await bot.send_message(channel,"```The bets have been closed for the match#{}```".format(job.race.id))
+        if (pytz.utc.localize(job.date) <= get_localzone().localize(datetime.datetime.now()).astimezone(pytz.utc)) :
+            if (job.race.betsOn == True) :
+                job.race.betsOn = False
+                await bot.send_message(channel,"```The bets have been closed for the match#{}```".format(job.race.id))
+                board_channel = bot.get_channel(board_id)
+                message = bot.logs_from(board_channel, limit =1)
+                async for m in message :
+                    await bot.delete_message(m)
+                await displayOpenRaces(session,bot)
             session.delete(job)
             session.commit()
-            board_channel = bot.get_channel(board_id)
-            message = bot.logs_from(board_channel, limit =1)
-            async for m in message :
-                await bot.delete_message(m)
-            await displayOpenRaces(session,bot)
 
 async def displayOpenRaces(session,bot):
     messages = [["Open bets :",datetime.datetime(1900, 1, 1)]]
@@ -223,7 +224,7 @@ class CommandBookmaker:
         await self.bot.say(str(tournament))
         self.session.commit()
 
-    @commands.command(help = "Close the bets for a match", alisases = ["closeBet,closebets,closebet"])
+    @commands.command(help = "Close the bets for a match", alisases = ["closeBet,closebets,closebet","closeBets"])
     @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def closeBets(self,race_id) : #Close race, todo : display  race id and Who vs Who
@@ -241,7 +242,7 @@ class CommandBookmaker:
         await displayOpenRaces(self.session,self.bot)
 
 
-    @commands.command(help = "Open the bets for a match",alisases = ["openBet,openbets,openbet"])
+    @commands.command(help = "Open the bets for a match",alisases = ["openBet","openbets","openbet","openBets"])
     @is_channel(channel_name = [bookmaker_channel,"betting-board"])
     @commands.has_role(bookmaker_role)
     async def openBets(self, race_id) : #Close bets, todo : display  race id and Who vs Who

@@ -40,7 +40,7 @@ class CommandBetter:
         engineR = create_engine(db_racing, echo =False)
         SessionR = sessionmaker(bind=engineR)
         sessionR = SessionR()
-        query = ("""select SUM((t1.place < t2.place and t1.place!=-1) or (t1.place!=-1 and t2.place=-1))*100/SUM(t1.race_id = t2.race_id) as winrate, SUM(t1.race_id = t2.race_id) as gamePlayed
+        query = ("""select SUM((t1.place < t2.place and t1.place!=-1) or (t1.place!=-1 and t2.place=-1)) as nbWon, SUM(t1.race_id = t2.race_id) as gamePlayed, SUM(t1.place = t2.place) as nbDraw
 from race_participants t1, race_participants t2 where t1.user_id =(
         select id from users where username= '{}'
     )
@@ -66,7 +66,7 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
             return
         result = self.getWinrateRacing(racer1_name, racer2_name)
         result = result.first()
-        await self.bot.say("""```{} placed higher than {} {}% of the time out of {} races on Racing+!```""".format(racer1_name, racer2_name, result[0], result[1]))
+        await self.bot.say("""```{} placed higher than {} {}% of the time out of {} races on Racing+! ({}% without draws)```""".format(racer1_name, racer2_name, round(result[0]*100/result[1],2),result[1], round(result[0]*100/(result[1]-result[2]),2)))
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True,
@@ -75,10 +75,13 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
     async def coin(self, ctx, *users) :
         if len(users) == 0 :
             better = self.session.query(Better).get(ctx.message.author.id)
+            coin_invested = 0
+            for bet in self.session.query(Bet).join(Bet.race).filter(Bet.better == better).filter(Race.ongoing == True) :
+                coin_invested = coin_invested + bet.coin_bet
             if better.coin == 0 :
-                await self.bot.say("0 coins you fucking degenerate")
+                await self.bot.say("0 coins you fucking degenerate, {} coins invested you madman".format(coin_invested))
             else :
-                await self.bot.say('You have {:d} coins'.format(better.coin))
+                await self.bot.say('You have {:d} coins, {} coins invested'.format(better.coin,coin_invested))
         else :
             for name in users :
                 if self.session.query(exists().where(Better.name == name)).scalar() :
@@ -145,17 +148,19 @@ and t1.race_id = t2.race_id;""").format(racer1_name, racer2_name)
 
 
     @is_channel(channel_name = BOT_CHANNEL)
-    @commands.command(pass_context=True, help = "Get current bets", aliases = ["bets", "Bets", "currentbets"])
+    @commands.command(pass_context=True, help = "Get current bets", aliases = ["bets", "Bets", "currentbets","b"])
     async def currentBets(self, ctx) :
         message = ""
         better = self.session.query(Better).get(ctx.message.author.id)
         payout = 0
-        for bet in self.session.query(Bet).filter(Bet.better_id == better.id) :
+        for bet in self.session.query(Bet).filter(Bet.better_id == better.id).order_by(Bet.race_id) :
             if bet.race.ongoing == True :
                 message = message + "\n" + str(bet)
                 payout = payout + round(bet.coin_bet*bet.odd)
-        if message == "" : message = "You have no bet placed"
-        await self.bot.say("Your current bets are : ```"+message+" \nIf all of them are correct you would win {} coins and end up with {}```".format(payout,better.coin+payout))
+        if message == "" :
+             await self.bot.say("You have no bet placed. Grow a pair ?")
+        else :
+            await self.bot.say("Your current bets are : ```"+message+" \nIf all of them are correct you would win {} coins and end up with {}```".format(payout,better.coin+payout))
 
     @is_channel(channel_name = BOT_CHANNEL)
     @commands.command(pass_context=True, help = "Top richest people in the world")
