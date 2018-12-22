@@ -49,16 +49,22 @@ async def closeBetScheduled (bot, session) :
 
 async def displayOpenRaces(session,bot):
     messages = [["Open bets :",datetime.datetime(1900, 1, 1)]]
-    for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True):
-        if session.query(exists().where(Job.race_id == race.id)).scalar() :
-            job = session.query(Job).filter(Job.race_id == race.id).first()
-            strdate = job.date.strftime("%a %d %b %H:%M")
-            messages.append(["```" + str(race) + " | " + strdate + " UTC"+"```",job.date])
-        else :
-            messages.append(["```" + str(race) + "```",datetime.datetime(2100, 1, 1)])
+    if not session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True).first() :
+        messages.append(["```There is no match to bet on```",datetime.datetime(1900, 1, 2)])
+    else :
+        for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == True):
+            if session.query(exists().where(Job.race_id == race.id)).scalar() :
+                job = session.query(Job).filter(Job.race_id == race.id).first()
+                strdate = job.date.strftime("%a %d %b %H:%M")
+                messages.append(["```" + str(race) + " | " + strdate + " UTC"+"```",job.date])
+            else :
+                messages.append(["```" + str(race) + "```",datetime.datetime(2100, 1, 1)])
     messages.append(["Closed bets :",datetime.datetime(2101, 1, 1)])
-    for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False):
-        messages.append(["```" + str(race) + "```",datetime.datetime(2102, 1, 1)])
+    if not session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False).first() :
+        messages.append(["```There is no match ongoing```",datetime.datetime(2103, 1, 1)])
+    else :
+        for race in session.query(Race).filter(Race.ongoing == True).filter(Race.betsOn == False):
+            messages.append(["```" + str(race) + "```",datetime.datetime(2102, 1, 1)])
     board_channel = bot.get_channel(board_id)
     message = bot.logs_from(board_channel, limit =100)
     async for m in message :
